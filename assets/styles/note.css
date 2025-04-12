@@ -1,0 +1,30 @@
+.block {
+  border: 2px solid black;
+  border-radius: 15px;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.block-title {
+  padding-left: 1rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  /* color: white; */
+  background-color: aquamarine;
+  border-bottom: 1px solid black;
+}
+
+.block-title div p {
+  margin: 0;
+}
+
+.block-body {
+  padding: 0.2rem 1rem;
+  background-color: lightyellow;
+  border-bottom: 1px solid gray;
+}
+
+.block-extend {
+  padding: 0.2rem 1rem;
+  background-color: lightblue;
+}
