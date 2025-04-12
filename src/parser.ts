@@ -1,0 +1,399 @@
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+
+import type { NoteNode } from "./index.d.ts";
+
+function parseNativeMarkdown(str: string, trailSpaces: number): NoteNode | null {
+  const ast = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .parse(trimLeadingSpaces(str, trailSpaces)) as NoteNode;
+
+  if (!ast.children.length) return null;
+  ast.type = "markdown";
+  return ast;
+}
+
+/**
+ * Trim leading spaces of given number from the string.
+ * @param {string} str
+ * @param {number} count
+ * @returns {string}
+ */
+function trimLeadingSpaces(str: string, count: number): string {
+  const lines = str.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    let trimNum = 0;
+    while (trimNum < count && trimNum < lines[i].length && lines[i][trimNum] === " ") trimNum++;
+    lines[i] = lines[i].slice(trimNum);
+  }
+  return lines.join("\n");
+}
+
+export default function noteParsePlugin() {
+  // @ts-ignore
+  this.parser = parseNote;
+}
+
+/**
+ * Parse the note text with extended syntax, parse bottom native MD by fromMarkdown, and return the whole AST.
+ * @param {string} text
+ * @returns {NoteNode}
+ */
+function parseNote(text: string): NoteNode {
+  let line = 1,
+    column = 1;
+  let input = "";
+  const lines: number[] = [],
+    columns: number[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = i + 1 < text.length ? text[i + 1] : null;
+
+    if (char === "\n" || char === "\r") input += "\n";
+    else input += char;
+
+    lines.push(line);
+    columns.push(column);
+
+    // Handle newlines (CRLF, LF, CR)
+    if (char === "\r") {
+      if (nextChar === "\n") {
+        // CRLF (Windows)
+        line++;
+        column = 1;
+        i++; // Skip the LF
+      } else {
+        // CR alone (old Mac)
+        line++;
+        column = 1;
+      }
+    } else if (char === "\n") {
+      // LF (Unix)
+      line++;
+      column = 1;
+    } else {
+      // Normal character
+      column++;
+    }
+  }
+
+  const getPosition = (index: number) => {
+    return {
+      line: lines[index],
+      column: columns[index],
+      offset: index,
+    };
+  };
+
+  const blockBeginParserGenerator = (identifier: string) => {
+    /**
+     * Parse the block begin syntax.
+     *
+     * Syntax: `'@def' [?!*]? ( ' '+ defName ' '* )? '{'`
+     *
+     * @param {number} beginIndex The starting index to parse the syntax.
+     * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
+     */
+    const parseBlockBegin = (
+      beginIndex: number
+    ): null | { endIndex: number; matchNode: NoteNode } => {
+      let index = beginIndex,
+        style: string | null = null;
+      let titleNode: NoteNode = {
+        type: "block-title",
+        children: [],
+        data: {
+          hName: "div",
+          hProperties: { class: "block-title" },
+        },
+      };
+      let bodyNode: NoteNode = {
+        type: "block-body",
+        children: [],
+        data: {
+          hName: "div",
+          hProperties: { class: "block-body" },
+        },
+      };
+
+      const ok = () => {
+        bodyNode.position = {
+          start: getPosition(index),
+          end: getPosition(index),
+        };
+        return {
+          endIndex: index,
+          matchNode: {
+            type: identifier + "-block",
+            children: [titleNode, bodyNode],
+            position: {
+              start: getPosition(beginIndex),
+              end: getPosition(index),
+            },
+            data: {
+              hName: "div",
+              hProperties: { class: "block" },
+            },
+            style,
+            state: "body",
+          },
+        };
+      };
+      const nok = () => null;
+      return checkPosition();
+
+      function checkPosition() {
+        if (columns[index] !== indentLevel * 4 + 1) return nok();
+        return parseDefIdentifier();
+      }
+      function parseDefIdentifier() {
+        const str = "@" + identifier;
+        for (let i = 0; i < str.length; i++) {
+          if (input[index + i] !== str[i]) return nok();
+        }
+        index += str.length;
+        if (input[index] === " " || input[index] === "\n") return parseDefName();
+        else return parseDefStyle();
+      }
+      function parseDefStyle() {
+        if (input[index] === "?") {
+          style = "?";
+          index++;
+        } else if (input[index] === "!") {
+          style = "!";
+          index++;
+        } else if (input[index] === "*") {
+          style = "*";
+          index++;
+        } else return nok();
+        return parseDefName();
+      }
+      function parseDefName() {
+        if (input[index] !== "{" && input[index] !== " ") return nok();
+        const start = index;
+        while (input[index] !== "{") {
+          if (input[index] === "\n") return nok();
+          index++;
+          if (index === input.length) return nok();
+        }
+        titleNode.position = {
+          start: { line: lines[start], column: columns[start], offset: start },
+          end: { line: lines[index], column: columns[index], offset: index },
+        };
+        const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0);
+        if (parsedTitle) titleNode.children.push(parsedTitle);
+
+        index++;
+        return ok();
+      }
+    };
+
+    return parseBlockBegin;
+  };
+
+  /**
+   * Parse the block separator syntax.
+   *
+   * Syntax: `^( *)={3,}( *)$`
+   *
+   * @param {number} beginIndex The starting index to parse the syntax.
+   * @returns `null` if match failed; `{ endIndex, matchNode: {type} }` if match succeeded.
+   */
+  const blockSeparatorParser = (
+    beginIndex: number
+  ): null | { endIndex: number; matchNode: NoteNode } => {
+    let index = beginIndex;
+    const ok = () => ({
+      endIndex: index,
+      matchNode: {
+        type: "block-separator",
+        children: [],
+      },
+    });
+    const nok = () => null;
+    return checkPosition();
+
+    /**
+     * We only match the equal sign at the begining of the line (after the indentation).
+     */
+    function checkPosition() {
+      if (columns[index] !== indentLevel * 4 + 1) return nok();
+      return parseBlockSeparator();
+    }
+
+    function parseBlockSeparator() {
+      let equalCount = 0;
+      while (index < input.length && input[index] === "=") {
+        equalCount++;
+        index++;
+      }
+      if (equalCount < 3) return nok();
+
+      while (index < input.length && input[index] !== "\n") {
+        if (input[index] !== " ") return nok();
+        index++;
+      }
+      return checkPreviousChars();
+    }
+
+    /**
+     * Check that the previous characters after the last line brake are all spaces.
+     */
+    function checkPreviousChars() {
+      let forwardIndex = beginIndex - 1;
+      while (forwardIndex >= 0 && input[forwardIndex] !== "\n") {
+        if (input[forwardIndex] !== " ") return nok();
+        if (!forwardIndex) break;
+        forwardIndex--;
+      }
+      return ok();
+    }
+  };
+
+  const parseDefBlockBegin = blockBeginParserGenerator("def");
+  const parseProofBlockBegin = blockBeginParserGenerator("proof");
+  const parseLemmaBlockBegin = blockBeginParserGenerator("lemma");
+  const parseCustomBlockBegin = blockBeginParserGenerator("block");
+
+  /* */
+  const length = input.length;
+  lines.push(line);
+  columns.push(column);
+
+  let indentLevel = 0;
+  const blockStack: { node: NoteNode; current: number }[] =
+    // Stack to keep track of the current block
+    [
+      {
+        node: {
+          type: "root",
+          children: [],
+          position: {
+            start: getPosition(0),
+            end: getPosition(0),
+          },
+          data: {
+            hName: "div",
+            hProperties: { class: "markdown-body" },
+          },
+        },
+        current: 0,
+      },
+    ];
+
+  for (let index = 0; index < length; ) {
+    const char = input[index];
+
+    let match: null | { endIndex: number; matchNode: NoteNode } = null;
+    let update = (result: null | { endIndex: number; matchNode: NoteNode }) => {
+      if (!match && result) match = result;
+    };
+    if (char === "@") {
+      update(parseDefBlockBegin(index));
+      update(parseProofBlockBegin(index));
+      update(parseLemmaBlockBegin(index));
+      update(parseCustomBlockBegin(index));
+    } else if (char === "=") {
+      update(blockSeparatorParser(index));
+    }
+
+    if (match) {
+      const { endIndex, matchNode: selfNode }: { endIndex: number; matchNode: NoteNode } = match;
+
+      if (!blockStack.length) {
+        throw new Error("Curly braces are not matched.");
+      }
+      const lastBlock = blockStack[blockStack.length - 1];
+      if (!lastBlock.node) {
+        throw new Error("Curly braces are not matched.");
+      }
+      const parentNode = lastBlock.node;
+      const last = lastBlock.current;
+
+      const ast: NoteNode | null = parseNativeMarkdown(input.slice(last, index), indentLevel * 4);
+      if (parentNode.type === "root") {
+        if (ast) parentNode.children.push(ast);
+        parentNode.children.push(selfNode);
+      } else if (parentNode.type.endsWith("-block")) {
+        if (parentNode.state === "body") {
+          if (ast) parentNode.children[1].children.push(ast);
+          parentNode.children[1].children.push(selfNode);
+        } else if (parentNode.state === "extend") {
+          if (ast) parentNode.children[2].children.push(ast);
+          parentNode.children[2].children.push(selfNode);
+        }
+      }
+
+      if (selfNode.type.endsWith("-block")) {
+        indentLevel++;
+        blockStack.push({ node: selfNode, current: endIndex });
+      } else if (selfNode.type === "block-separator") {
+        if (parentNode.state === "body") {
+          parentNode.children[1].position!.end = getPosition(index);
+
+          let extendNode: NoteNode = {
+            type: "block-extend",
+            children: [],
+            position: {
+              start: getPosition(endIndex),
+              end: getPosition(endIndex),
+            },
+            data: {
+              hName: "div",
+              hProperties: { class: "block-extend" },
+            },
+          };
+          console.log(parentNode.children.length);
+          parentNode.children.push(extendNode);
+          parentNode.state = "extend";
+        }
+      }
+
+      index = endIndex;
+      blockStack[blockStack.length - 1].current = index;
+    } else {
+      if (char === "}" && columns[index] === (indentLevel - 1) * 4 + 1) {
+        if (blockStack.length > 1) {
+          const { node: selfNode, current: last } = blockStack.pop()!;
+
+          if (selfNode) {
+            const ast = parseNativeMarkdown(input.slice(last!, index), indentLevel * 4);
+            if (selfNode.type.endsWith("-block")) {
+              if (selfNode.state === "body") {
+                if (ast) selfNode.children[1].children.push(ast);
+              } else if (selfNode.state === "extend") {
+                if (ast) selfNode.children[2].children.push(ast);
+              }
+              indentLevel--;
+            }
+
+            selfNode.position!.end = getPosition(index + 1);
+            if (selfNode.type.endsWith("-block")) {
+              if (selfNode.state === "body") {
+                selfNode.children[1].position!.end = getPosition(index);
+              } else if (selfNode.state === "extend") {
+                selfNode.children[2].position!.end = getPosition(index);
+              }
+            }
+            blockStack[blockStack.length - 1].current = index + 1;
+          }
+        }
+      }
+      index++;
+    }
+  }
+  if (blockStack.length > 1) {
+    throw new Error("Curly braces are not matched.");
+  }
+  const { node, current: last } = blockStack[0];
+  const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4);
+  if (ast) node.children.push(ast);
+  blockStack[0].node.position!.end = getPosition(length);
+
+  return blockStack[0].node;
+}
