@@ -85,7 +85,7 @@
     --bgColor-muted: #f6f8fa;
     --bgColor-neutral-muted: #818b981f;
     --bgColor-attention-muted: #fff8c5;
-    --borderColor-default: #d1d9e0;
+    --borderColor-default: #475657;
     --borderColor-muted: #d1d9e0b3;
     --borderColor-neutral-muted: #d1d9e0b3;
     --borderColor-accent-emphasis: #0969da;
@@ -251,7 +251,7 @@
   overflow: hidden;
   background: transparent;
   border-bottom: 1px solid var(--borderColor-muted);
-  height: 0.25em;
+  height: 0.15em;
   padding: 0;
   margin: var(--base-size-24) 0;
   background-color: var(--borderColor-default);

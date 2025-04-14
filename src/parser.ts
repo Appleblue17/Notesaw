@@ -90,7 +90,7 @@ function parseNote(text: string): NoteNode {
     };
   };
 
-  const blockBeginParserGenerator = (identifier: string) => {
+  const blockBeginParserGenerator = (abbr: string, full: string) => {
     /**
      * Parse the block begin syntax.
      *
@@ -129,7 +129,7 @@ function parseNote(text: string): NoteNode {
         return {
           endIndex: index,
           matchNode: {
-            type: identifier + "-block",
+            type: abbr + "-block",
             children: [titleNode, bodyNode],
             position: {
               start: getPosition(beginIndex),
@@ -137,7 +137,7 @@ function parseNote(text: string): NoteNode {
             },
             data: {
               hName: "div",
-              hProperties: { class: "block" },
+              hProperties: { class: full + "-block-mdast" },
             },
             style,
             state: "body",
@@ -152,12 +152,13 @@ function parseNote(text: string): NoteNode {
         return parseDefIdentifier();
       }
       function parseDefIdentifier() {
-        const str = "@" + identifier;
+        const str = "@" + abbr;
         for (let i = 0; i < str.length; i++) {
           if (input[index + i] !== str[i]) return nok();
         }
         index += str.length;
-        if (input[index] === " " || input[index] === "\n") return parseDefName();
+        if (input[index] === " " || input[index] === "{" || input[index] === "\n")
+          return parseDefName();
         else return parseDefStyle();
       }
       function parseDefStyle() {
@@ -255,10 +256,27 @@ function parseNote(text: string): NoteNode {
     }
   };
 
-  const parseDefBlockBegin = blockBeginParserGenerator("def");
-  const parseProofBlockBegin = blockBeginParserGenerator("proof");
-  const parseLemmaBlockBegin = blockBeginParserGenerator("lemma");
-  const parseCustomBlockBegin = blockBeginParserGenerator("block");
+  const parseAxiomBlockBegin = blockBeginParserGenerator("axiom", "axiom");
+  const parseTheoremBlockBegin = blockBeginParserGenerator("thm", "theorem");
+  const parseProofBlockBegin = blockBeginParserGenerator("proof", "proof");
+  const parseLemmaBlockBegin = blockBeginParserGenerator("lemma", "lemma");
+  const parseLawBlockBegin = blockBeginParserGenerator("law", "law");
+  const parsePropBlockBegin = blockBeginParserGenerator("prop", "proposition");
+  const parseCorBlockBegin = blockBeginParserGenerator("cor", "corollary");
+
+  const parseDefBlockBegin = blockBeginParserGenerator("def", "definition");
+  const parseNoteBlockBegin = blockBeginParserGenerator("note", "note");
+  const parseRemarkBlockBegin = blockBeginParserGenerator("remark", "remark");
+  const parseExampleBlockBegin = blockBeginParserGenerator("example", "example");
+  const parseProblemBlockBegin = blockBeginParserGenerator("problem", "problem");
+  const parseSolutionBlockBegin = blockBeginParserGenerator("solution", "solution");
+
+  // special styling
+  const parseWarnBlockBegin = blockBeginParserGenerator("warn", "warning");
+  const parseVarsBlockBegin = blockBeginParserGenerator("vars", "variables");
+  // const parseTodoBlockBegin = blockBeginParserGenerator("todo");
+  // const parseQuoteBlockBegin = blockBeginParserGenerator("quote");
+  const parseCustomBlockBegin = blockBeginParserGenerator("block", "custom");
 
   /* */
   const length = input.length;
@@ -295,8 +313,24 @@ function parseNote(text: string): NoteNode {
     };
     if (char === "@") {
       update(parseDefBlockBegin(index));
+      update(parseAxiomBlockBegin(index));
+      update(parseTheoremBlockBegin(index));
+      update(parseLawBlockBegin(index));
       update(parseProofBlockBegin(index));
       update(parseLemmaBlockBegin(index));
+      update(parsePropBlockBegin(index));
+      update(parseCorBlockBegin(index));
+
+      update(parseNoteBlockBegin(index));
+      update(parseRemarkBlockBegin(index));
+      update(parseExampleBlockBegin(index));
+      update(parseProblemBlockBegin(index));
+      update(parseSolutionBlockBegin(index));
+
+      update(parseWarnBlockBegin(index));
+      update(parseVarsBlockBegin(index));
+      // update(parseTodoBlockBegin(index));
+      // update(parseQuoteBlockBegin(index));
       update(parseCustomBlockBegin(index));
     } else if (char === "=") {
       update(blockSeparatorParser(index));
@@ -348,7 +382,6 @@ function parseNote(text: string): NoteNode {
               hProperties: { class: "block-extend" },
             },
           };
-          console.log(parentNode.children.length);
           parentNode.children.push(extendNode);
           parentNode.state = "extend";
         }
