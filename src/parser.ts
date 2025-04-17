@@ -103,7 +103,8 @@ function parseNote(text: string): NoteNode {
       beginIndex: number
     ): null | { endIndex: number; matchNode: NoteNode } => {
       let index = beginIndex,
-        style: string | null = null;
+        style: string | null = null,
+        isLink = false;
       let titleNode: NoteNode = {
         type: "block-title",
         children: [],
@@ -137,9 +138,12 @@ function parseNote(text: string): NoteNode {
             },
             data: {
               hName: "div",
-              hProperties: { class: full + "-block-mdast" },
+              hProperties: {
+                class: full + "-block-mdast" + (isLink ? " block-link" : ""),
+              },
             },
-            style,
+            style: style,
+            isLink: isLink,
             state: "body",
           },
         };
@@ -149,6 +153,13 @@ function parseNote(text: string): NoteNode {
 
       function checkPosition() {
         if (columns[index] !== indentLevel * 4 + 1) return nok();
+        return parseLinkSymbol();
+      }
+      function parseLinkSymbol() {
+        if (input[index] === "+") {
+          isLink = true;
+          index++;
+        }
         return parseDefIdentifier();
       }
       function parseDefIdentifier() {
@@ -311,7 +322,7 @@ function parseNote(text: string): NoteNode {
     let update = (result: null | { endIndex: number; matchNode: NoteNode }) => {
       if (!match && result) match = result;
     };
-    if (char === "@") {
+    if (char === "@" || char === "+") {
       update(parseDefBlockBegin(index));
       update(parseAxiomBlockBegin(index));
       update(parseTheoremBlockBegin(index));

@@ -2,12 +2,39 @@
   --tag-height: 18px;
 }
 
+/* block */
 .block-container {
   position: relative;
   padding: 1rem 0;
   margin: 0 1rem;
-  /* border: 2px solid black; */
 }
+.block {
+  position: relative;
+  border: 2px solid black;
+  border-radius: 15px;
+  overflow: hidden;
+}
+.block > .block-title > div p {
+  margin: 0;
+}
+.block > .block-title {
+  padding: 0.5rem 1rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  border-bottom: 1px solid black;
+}
+.block > .block-body {
+  font-size: 1rem;
+  padding: 1rem 1rem 1px;
+  border-bottom: 1px solid gray;
+}
+.block > .block-extend {
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem 1px;
+}
+
+/* block-icon */
 .block-icon-container {
   position: absolute;
   top: 0px;
@@ -34,6 +61,8 @@
   stroke-linejoin: round;
   fill: none;
 }
+
+/* block-tag */
 .block-tag-container {
   position: absolute;
   top: 6px;
@@ -50,28 +79,42 @@
   padding: 0 1rem;
 }
 
-.block {
-  position: relative;
-  border: 2px solid black;
-  border-radius: 15px;
-  overflow: hidden;
+/* block-link */
+.block-link-container {
+  position: absolute;
+  top: -16px;
+  left: 25px;
+  z-index: 0;
+
+  visibility: hidden;
 }
-.block > .block-title > div p {
-  margin: 0;
+.block-container + .block-container > .block-link-container {
+  visibility: visible;
 }
-.block > .block-title {
-  padding: 0.5rem 1rem;
-  font-size: 1.3rem;
-  font-weight: bold;
-  color: white;
-  border-bottom: 1px solid black;
+.block-link-line {
+  position: absolute;
 }
-.block > .block-body {
-  padding: 0.5rem 1rem 1px;
-  border-bottom: 1px solid gray;
+.block-link-icon-container {
+  position: absolute;
+  top: 4px;
+  left: -5px;
+  background-color: #434242c3;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
 }
-.block > .block-extend {
-  padding: 0.5rem 1rem 1px;
+.block-link-icon {
+  width: 10px;
+  height: 10px;
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
 }
 
 /* */

@@ -84,6 +84,7 @@ function transformNote(tree: Element) {
             class: "block " + blockType + "-block",
           },
         };
+
         node.children = [
           {
             type: "element",
@@ -126,6 +127,72 @@ function transformNote(tree: Element) {
           },
           nodeCopy,
         ];
+
+        if (classList?.includes("block-link")) {
+          node.children.unshift({
+            type: "element",
+            tagName: "div",
+            properties: {
+              class: "block-link-container",
+            },
+            children: [
+              {
+                type: "element",
+                tagName: "svg",
+                properties: {
+                  class: "block-link-line",
+                  width: "4", // Increased width to accommodate the borders
+                  height: "25",
+                  viewBox: "0 0 4 25",
+                  preserveAspectRatio: "none",
+                },
+                children: [
+                  // Center gray line
+                  {
+                    type: "element",
+                    tagName: "line",
+                    properties: {
+                      x1: "2",
+                      y1: "0",
+                      x2: "2",
+                      y2: "25",
+                      stroke: "#444444",
+                      "stroke-width": "1.5",
+                      "stroke-dasharray": "1.5,1", // Creates a dashed line effect
+                    },
+                    children: [],
+                  },
+                ],
+              },
+              {
+                type: "element",
+                tagName: "div",
+                properties: {
+                  class: "block-link-icon-container",
+                },
+                children: [
+                  {
+                    type: "element",
+                    tagName: "svg",
+                    properties: {
+                      class: "block-link-icon",
+                    },
+                    children: [
+                      {
+                        type: "element",
+                        tagName: "use",
+                        properties: {
+                          href: featherPath + "#link",
+                        },
+                        children: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          });
+        }
       }
     }
   });
