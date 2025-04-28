@@ -1,4 +1,6 @@
-dist/**
-node_modules/**
+out
+note_test
+node_modules
+.vscode-test/
+*.vsix
 output.html
-test/**

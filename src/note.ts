@@ -10,43 +10,38 @@ import prettyPrint from "./utils/prettyprint.ts";
 import noteParsePlugin from "./parser.ts";
 import { noteTransformPlugin } from "./transformer.ts";
 
-import fs from "fs/promises";
-import { Script } from "vm";
-
 const preprocessMath = (input: string): string => {
   // Ensure all $$...$$ formulas are treated as display mode
   return input.replace(/\$\$([^$]*)\$\$/gs, "$$$$\n$1\n$$$$\n");
 };
 
-const doc: string = preprocessMath(await fs.readFile("./test/test.note", "utf-8"));
+export default async function noteProcess(doc: string) {
+  const docMath: string = preprocessMath(doc);
 
-// console.log(doc);
+  const vfile = await unified()
+    .use(noteParsePlugin) // Custom parser processes raw text first
+    .use(() => (ast: NoteNode) => {
+      // console.log("After remarkParse");
+      // console.log(prettyPrint(ast)); // Debug intermediate tree
+    })
+    .use(remarkRehype) // Convert Markdown parts to HTML
+    .use(noteTransformPlugin) // Transform custom AST
+    .use(rehypeKatex) // Add KaTeX support
+    .use(() => (ast: NoteNode) => {
+      // console.log("After remarkRehype");
+      // console.log(prettyPrint(ast)); // Debug after custom compiler
+    })
+    .use(rehypeFormat)
+    .use(rehypeDocument, {
+      css: [
+        "./assets/styles/note.css",
+        "./assets/styles/github-markdown.css",
+        "./assets/styles/katex.min.css",
+      ],
+    })
+    .use(rehypeStringify) // Stringify the final HTML
+    .process(docMath);
 
-const vfile = await unified()
-  .use(noteParsePlugin) // Custom parser processes raw text first
-  .use(() => (ast: NoteNode) => {
-    // console.log("After remarkParse");
-    // console.log(prettyPrint(ast)); // Debug intermediate tree
-  })
-  .use(remarkRehype) // Convert Markdown parts to HTML
-  .use(noteTransformPlugin) // Transform custom AST
-  .use(rehypeKatex) // Add KaTeX support
-  .use(() => (ast: NoteNode) => {
-    // console.log("After remarkRehype");
-    // console.log(prettyPrint(ast)); // Debug after custom compiler
-  })
-  .use(rehypeFormat)
-  .use(rehypeDocument, {
-    css: [
-      "./assets/styles/note.css",
-      "./assets/styles/github-markdown.css",
-      "./assets/styles/katex.min.css",
-    ],
-  })
-  .use(rehypeStringify) // Stringify the final HTML
-  .process(doc);
-
-// console.log(String(vfile));
-
-await fs.writeFile("./output.html", String(vfile), "utf-8");
-console.log("HTML exported to output.html");
+  // console.log(String(vfile));
+  return String(vfile);
+}

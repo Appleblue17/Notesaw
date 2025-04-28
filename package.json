@@ -1,17 +1,35 @@
 {
-  "name": "notesaw",
-  "version": "1.0.0",
-  "description": "",
-  "type": "module",
-  "main": "src/note.ts",
-  "scripts": {
-    "build": "tsc",
-    "start": "tsc && node dist/note.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "name": "notesaw_preview",
+  "description": "none",
+  "version": "0.0.1",
+  "publisher": "Appleblue17",
+  "engines": {
+    "vscode": "^1.100.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "type": "module",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "notesaw.start",
+        "title": "Start Notesaw preview",
+        "category": "Notesaw"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "process": "tsc -p ./ && node ./out/main.js"
+  },
   "dependencies": {
     "feather-icons": "^4.29.2",
     "rehype-document": "^7.0.3",
@@ -26,10 +44,17 @@
     "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "~20.17.30",
+    "@types/vscode": "^1.99.1",
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.13.17",
     "@types/unist": "^3.0.3",
-    "typescript": "^5.8.2"
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.24.0",
+    "typescript": "^5.8.3"
   }
 }
