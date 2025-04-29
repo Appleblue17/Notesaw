@@ -2,36 +2,75 @@
   --tag-height: 18px;
 }
 
+.markdown-body {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #000000d0;
+  padding: 0 2rem;
+}
+
 /* block */
 .block-container {
   position: relative;
   padding: 1rem 0;
-  margin: 0 1rem;
+  margin-left: 0.5rem;
 }
-.block {
+.block-card {
   position: relative;
   border: 2px solid black;
   border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
-.block > .block-title > div p {
+.block-card > .block-title > div p {
   margin: 0;
 }
-.block > .block-title {
-  padding: 0.5rem 1rem;
+.block-card > .block-title {
+  padding: 0.8rem 1rem 0.4rem;
   font-size: 1.2rem;
   font-weight: bold;
-  color: white;
-  border-bottom: 1px solid black;
+  border-bottom: 2px solid #9f9f9f8e;
 }
-.block > .block-body {
+.block-card > .block-body {
   font-size: 1rem;
-  padding: 1rem 1rem 1px;
+  padding: 0.5rem 2rem 1px;
   border-bottom: 1px solid gray;
 }
-.block > .block-extend {
+
+.block-extend::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 30px;
+  height: 30px;
+  display: block;
+
+  border-left: 2px solid #9f9f9f;
+  border-top: 2px solid #9f9f9f;
+  /* background-color: #9f9f9f8e; */
+}
+
+.block-extend {
+  position: relative;
   font-size: 0.9rem;
+  margin: 1rem 1rem 0 4rem;
   padding: 0.5rem 1rem 1px;
+  border-left: 2px dashed #e2e2e2;
+  border-right: 2px dashed #e2e2e2;
+}
+.block-extend::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: -2px;
+  width: 30px;
+  height: 30px;
+  display: block;
+
+  border-right: 2px solid #9f9f9f;
+  border-bottom: 2px solid #9f9f9f;
+  /* background-color: #9f9f9f8e; */
 }
 
 /* block-icon */
@@ -55,8 +94,8 @@
 .block-icon {
   width: 20px;
   height: 20px;
-  stroke: #252525;
-  stroke-width: 2;
+  stroke: #ffffffe0;
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
@@ -69,8 +108,9 @@
   left: 6px;
   z-index: 1;
   background-color: white;
-  color: #252525;
+  color: #ffffffe0;
   font-size: 15px;
+  font-weight: bold;
 
   height: var(--tag-height);
   line-height: var(--tag-height);
@@ -80,269 +120,147 @@
 }
 
 /* block-link */
-.block-link-container {
-  position: absolute;
-  top: -16px;
-  left: 25px;
-  z-index: 0;
 
-  visibility: hidden;
-}
-.block-container + .block-container > .block-link-container {
-  visibility: visible;
-}
-.block-link-line {
-  position: absolute;
-}
-.block-link-icon-container {
-  position: absolute;
-  top: 4px;
-  left: -5px;
-  background-color: #434242c3;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-}
-.block-link-icon {
-  width: 10px;
-  height: 10px;
-  stroke: #ffffff;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* */
-
-.axiom-block > .block-title {
-  background-color: #007a5e; /* Teal */
-}
-.axiom-block > .block-body {
-  background-color: #3dd6a4ad; /* Light teal with transparency */
-}
-.axiom-block > .block-extend {
-  background-color: #3dd6a46b; /* Lighter teal with more transparency */
-}
-.axiom-block-container > .block-icon-container,
-.axiom-block-container > .block-tag-container {
-  background-color: #eafcf7; /* Very light teal */
-}
-
-.proposition-block > .block-title {
-  background-color: #6b8e00; /* Olive green */
-}
-.proposition-block > .block-body {
-  background-color: #c3e67aad; /* Light olive with transparency */
-}
-.proposition-block > .block-extend {
-  background-color: #c3e67a6b; /* Lighter olive with more transparency */
-}
-.proposition-block-container > .block-icon-container,
-.proposition-block-container > .block-tag-container {
-  background-color: #f4f9e5; /* Very light olive green */
-}
-
-.theorem-block > .block-title {
-  background-color: #3b7300; /* Dark lime green */
-}
-.theorem-block > .block-body {
-  background-color: #9edc4fad; /* Light lime green with transparency */
-}
-.theorem-block > .block-extend {
-  background-color: #9edc4f6b; /* Lighter lime green with more transparency */
-}
-.theorem-block-container > .block-icon-container,
-.theorem-block-container > .block-tag-container {
-  background-color: #f3fbe5; /* Very light lime green */
-}
-
-.lemma-block > .block-title {
-  background-color: #4f9e00;
-}
-.lemma-block > .block-body {
-  background-color: #c6fc91a9;
-}
-.lemma-block > .block-extend {
-  background-color: #c6fc9163;
-}
-.lemma-block-container > .block-icon-container,
-.lemma-block-container > .block-tag-container {
-  background-color: #f5ffe8; /* Very light green */
-}
-
-.law-block > .block-title {
-  background-color: #8c9e00; /* Darker yellow-green */
-}
-.law-block > .block-body {
-  background-color: #b3cc4fad; /* Darker light yellow-green with transparency */
-}
-.law-block > .block-extend {
-  background-color: #b3cc4f6b; /* Even darker yellow-green with more transparency */
-}
-.law-block-container > .block-icon-container,
-.law-block-container > .block-tag-container {
-  background-color: #f6fbe5; /* Very light yellow-green */
-}
-
-.proof-block > .block-title {
-  background-color: #008a33;
-}
-.proof-block > .block-body {
-  background-color: #3dc870ad;
-}
-.proof-block > .block-extend {
-  background-color: #3dc8706b;
-}
-.proof-block-container > .block-icon-container,
-.proof-block-container > .block-tag-container {
-  background-color: #d5f9e2;
-}
-
-.corollary-block > .block-title {
-  background-color: #005f33; /* Deep green */
-}
-.corollary-block > .block-body {
-  background-color: #4fbf8cad; /* Light deep green with transparency */
-}
-.corollary-block > .block-extend {
-  background-color: #4fbf8c6b; /* Lighter deep green with more transparency */
-}
-.corollary-block-container > .block-icon-container,
-.corollary-block-container > .block-tag-container {
-  background-color: #d5f5eb; /* Very light deep green */
-}
-
-/**/
-
-.definition-block > .block-title {
-  background-color: #d67600;
-}
-.definition-block > .block-body {
-  background-color: #ffbd6da8;
-}
-.definition-block > .block-extend {
-  background-color: #ffbd6d61;
+/* Definition block (existing code) */
+.definition-block-container > .block-card {
+  background-color: #fdeddb;
 }
 .definition-block-container > .block-icon-container,
 .definition-block-container > .block-tag-container {
-  background-color: #ffe9cd;
+  background-color: #ea9834;
 }
 
-.note-block > .block-title {
-  background-color: #4fa8e6; /* Lighter sky blue */
+/* Axiom block */
+.axiom-block-container > .block-card {
+  background-color: #e5f8f3;
 }
-.note-block > .block-body {
-  background-color: #a3d9f6ad; /* Very light sky blue with transparency */
+.axiom-block-container > .block-icon-container,
+.axiom-block-container > .block-tag-container {
+  background-color: #007a5e;
 }
-.note-block > .block-extend {
-  background-color: #a3d9f66b; /* Even lighter sky blue with more transparency */
+
+/* Proposition block */
+.proposition-block-container > .block-card {
+  background-color: #f2f7e2;
+}
+.proposition-block-container > .block-icon-container,
+.proposition-block-container > .block-tag-container {
+  background-color: #6b8e00;
+}
+
+/* Theorem block */
+.theorem-block-container > .block-card {
+  background-color: #eef8e2;
+}
+.theorem-block-container > .block-icon-container,
+.theorem-block-container > .block-tag-container {
+  background-color: #3b7300;
+}
+
+/* Lemma block */
+.lemma-block-container > .block-card {
+  background-color: #f0fae6;
+}
+.lemma-block-container > .block-icon-container,
+.lemma-block-container > .block-tag-container {
+  background-color: #4f9e00;
+}
+
+/* Law block */
+.law-block-container > .block-card {
+  background-color: #f5f7e2;
+}
+.law-block-container > .block-icon-container,
+.law-block-container > .block-tag-container {
+  background-color: #8c9e00;
+}
+
+/* Proof block */
+.proof-block-container > .block-card {
+  background-color: #e6f7ee;
+}
+.proof-block-container > .block-icon-container,
+.proof-block-container > .block-tag-container {
+  background-color: #008a33;
+}
+
+/* Corollary block */
+.corollary-block-container > .block-card {
+  background-color: #e8f5f0;
+}
+.corollary-block-container > .block-icon-container,
+.corollary-block-container > .block-tag-container {
+  background-color: #005f33;
+}
+
+/* Note block */
+.note-block-container > .block-card {
+  background-color: #eaf5fc;
 }
 .note-block-container > .block-icon-container,
 .note-block-container > .block-tag-container {
-  background-color: #eaf6fc; /* Very light sky blue */
+  background-color: #4fa8e6;
 }
 
-.remark-block > .block-title {
-  background-color: #003f8c; /* Pure deep blue */
-}
-.remark-block > .block-body {
-  background-color: #4f8cd6ad; /* Light pure blue with transparency */
-}
-.remark-block > .block-extend {
-  background-color: #4f8cd66b; /* Lighter pure blue with more transparency */
+/* Remark block */
+.remark-block-container > .block-card {
+  background-color: #e7eef8;
 }
 .remark-block-container > .block-icon-container,
 .remark-block-container > .block-tag-container {
-  background-color: #e5effc; /* Very light pure blue */
+  background-color: #003f8c;
 }
 
-.example-block > .block-title {
-  background-color: #d4a100; /* Deeper golden yellow */
-}
-.example-block > .block-body {
-  background-color: #f7c766ad; /* Light deeper golden yellow with transparency */
-}
-.example-block > .block-extend {
-  background-color: #f7c7666b; /* Lighter deeper golden yellow with more transparency */
+/* Example block */
+.example-block-container > .block-card {
+  background-color: #fcf5e5;
 }
 .example-block-container > .block-icon-container,
 .example-block-container > .block-tag-container {
-  background-color: #fef7e5; /* Very light golden yellow */
+  background-color: #d4a100;
 }
 
-.problem-block > .block-title {
-  background-color: #cc8400; /* Darker yellow-orange */
-}
-.problem-block > .block-body {
-  background-color: #e6a84dad; /* Light darker yellow-orange with transparency */
-}
-.problem-block > .block-extend {
-  background-color: #e6a84d6b; /* Lighter darker yellow-orange with more transparency */
+/* Problem block */
+.problem-block-container > .block-card {
+  background-color: #faf1e5;
 }
 .problem-block-container > .block-icon-container,
 .problem-block-container > .block-tag-container {
-  background-color: #fdf2e5; /* Very light yellow-orange */
+  background-color: #cc8400;
 }
 
-.solution-block > .block-title {
-  background-color: #b37400; /* Darker deep golden yellow */
-}
-.solution-block > .block-body {
-  background-color: #d48f4dad; /* Light darker deep golden yellow with transparency */
-}
-.solution-block > .block-extend {
-  background-color: #d48f4d6b; /* Lighter darker deep golden yellow with more transparency */
+/* Solution block */
+.solution-block-container > .block-card {
+  background-color: #f8eee4;
 }
 .solution-block-container > .block-icon-container,
 .solution-block-container > .block-tag-container {
-  background-color: #fbeee5; /* Very light deep golden yellow */
+  background-color: #b37400;
 }
 
-/* special */
-
-.warning-block > .block-title {
-  background-color: #cc0000; /* Bright red */
-}
-.warning-block > .block-body {
-  background-color: #ff4d4dad; /* Light bright red with transparency */
-}
-.warning-block > .block-extend {
-  background-color: #ff4d4d6b; /* Lighter bright red with more transparency */
+/* Warning block */
+.warning-block-container > .block-card {
+  background-color: #fbeaea;
 }
 .warning-block-container > .block-icon-container,
 .warning-block-container > .block-tag-container {
-  background-color: #fde5e5; /* Very light red */
+  background-color: #cc0000;
 }
 
-.variables-block > .block-title {
-  background-color: #2e004f; /* Deeper purple */
-}
-.variables-block > .block-body {
-  background-color: #5e2f7fad; /* Light deeper purple with transparency */
-}
-.variables-block > .block-extend {
-  background-color: #5e2f7f6b; /* Lighter deeper purple with more transparency */
+/* Variables block */
+.variables-block-container > .block-card {
+  background-color: #f0e8f7;
 }
 .variables-block-container > .block-icon-container,
 .variables-block-container > .block-tag-container {
-  background-color: #f3e5fc; /* Very light purple */
+  background-color: #2e004f;
 }
 
-.custom-block > .block-title {
+/* Custom block */
+.custom-block-container > .block-card {
+  background-color: #f2f2f2;
+}
+.custom-block-container > .block-icon-container,
+.custom-block-container > .block-tag-container {
   background-color: #6a6a6a;
-}
-.custom-block > .block-body {
-  background-color: #8e8e8eae;
-}
-.custom-block > .block-extend {
-  background-color: #8e8e8e66;
-}
-.custom-block-container > .custom-icon-container,
-.custom-block-container > .custom-tag-container {
-  background-color: #e0dfdf; /* Very light gray */
 }

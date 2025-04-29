@@ -78,12 +78,41 @@ function transformNote(tree: Element) {
           class: "block-container " + blockType + "-block-container",
         };
 
-        const nodeCopy = {
-          ...node,
+        let titleNode: Element = {
+          type: "element",
+          tagName: "div",
           properties: {
-            class: "block " + blockType + "-block",
+            class: "block-title",
           },
+          children: [] as Element[],
         };
+        let bodyNode: Element = {
+          type: "element",
+          tagName: "div",
+          properties: {
+            class: "block-body",
+          },
+          children: [] as Element[],
+        };
+        let extendNode: Element = {
+          type: "element",
+          tagName: "div",
+          properties: {
+            class: "block-extend",
+          },
+          children: [] as Element[],
+        };
+
+        for (const child of node.children as Element[]) {
+          const childClass = child.properties?.["class"]?.toString();
+          if (childClass?.includes("block-title-mdast")) {
+            titleNode.children.push(child);
+          } else if (childClass?.includes("block-body-mdast")) {
+            bodyNode.children.push(child);
+          } else if (childClass?.includes("block-extend-mdast")) {
+            extendNode.children.push(child);
+          }
+        }
 
         node.children = [
           {
@@ -125,74 +154,88 @@ function transformNote(tree: Element) {
               },
             ],
           },
-          nodeCopy,
         ];
 
-        if (classList?.includes("block-link")) {
-          node.children.unshift({
+        if (bodyNode.children.length > 0) {
+          const blockNode: Element = {
             type: "element",
             tagName: "div",
             properties: {
-              class: "block-link-container",
+              class: "block-card",
             },
-            children: [
-              {
-                type: "element",
-                tagName: "svg",
-                properties: {
-                  class: "block-link-line",
-                  width: "4", // Increased width to accommodate the borders
-                  height: "25",
-                  viewBox: "0 0 4 25",
-                  preserveAspectRatio: "none",
-                },
-                children: [
-                  // Center gray line
-                  {
-                    type: "element",
-                    tagName: "line",
-                    properties: {
-                      x1: "2",
-                      y1: "0",
-                      x2: "2",
-                      y2: "25",
-                      stroke: "#444444",
-                      "stroke-width": "1.5",
-                      "stroke-dasharray": "1.5,1", // Creates a dashed line effect
-                    },
-                    children: [],
-                  },
-                ],
-              },
-              {
-                type: "element",
-                tagName: "div",
-                properties: {
-                  class: "block-link-icon-container",
-                },
-                children: [
-                  {
-                    type: "element",
-                    tagName: "svg",
-                    properties: {
-                      class: "block-link-icon",
-                    },
-                    children: [
-                      {
-                        type: "element",
-                        tagName: "use",
-                        properties: {
-                          href: featherPath + "#link",
-                        },
-                        children: [],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          });
+            children: [] as Element[],
+          };
+          if (titleNode.children.length > 0) blockNode.children.push(titleNode);
+          blockNode.children.push(bodyNode);
+          node.children.push(blockNode);
         }
+        if (extendNode.children.length > 0) node.children.push(extendNode);
+
+        // if (classList?.includes("block-link")) {
+        //   node.children.unshift({
+        //     type: "element",
+        //     tagName: "div",
+        //     properties: {
+        //       class: "block-link-container",
+        //     },
+        //     children: [
+        //       {
+        //         type: "element",
+        //         tagName: "svg",
+        //         properties: {
+        //           class: "block-link-line",
+        //           width: "4", // Increased width to accommodate the borders
+        //           height: "25",
+        //           viewBox: "0 0 4 25",
+        //           preserveAspectRatio: "none",
+        //         },
+        //         children: [
+        //           // Center gray line
+        //           {
+        //             type: "element",
+        //             tagName: "line",
+        //             properties: {
+        //               x1: "2",
+        //               y1: "0",
+        //               x2: "2",
+        //               y2: "25",
+        //               stroke: "#444444",
+        //               "stroke-width": "1.5",
+        //               "stroke-dasharray": "1.5,1", // Creates a dashed line effect
+        //             },
+        //             children: [],
+        //           },
+        //         ],
+        //       },
+        //       {
+        //         type: "element",
+        //         tagName: "div",
+        //         properties: {
+        //           class: "block-link-icon-container",
+        //         },
+        //         children: [
+        //           {
+        //             type: "element",
+        //             tagName: "svg",
+        //             properties: {
+        //               class: "block-link-icon",
+        //             },
+        //             children: [
+        //               {
+        //                 type: "element",
+        //                 tagName: "use",
+        //                 properties: {
+        //                   href: featherPath + "#link",
+        //                 },
+        //                 children: [],
+        //               },
+        //             ],
+        //           },
+        //         ],
+        //       },
+        //     ],
+        // });
+        // }
       }
     }
   });

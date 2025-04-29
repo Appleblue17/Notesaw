@@ -16,7 +16,7 @@ const preprocessMath = (input: string): string => {
 };
 
 export default async function noteProcess(doc: string) {
-  const docMath: string = preprocessMath(doc);
+  const docWithMath: string = preprocessMath(doc);
 
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
@@ -40,8 +40,9 @@ export default async function noteProcess(doc: string) {
       ],
     })
     .use(rehypeStringify) // Stringify the final HTML
-    .process(docMath);
+    .process(docWithMath);
 
   // console.log(String(vfile));
   return String(vfile);
+  // return "";
 }

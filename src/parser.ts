@@ -33,6 +33,19 @@ function trimLeadingSpaces(str: string, count: number): string {
   return lines.join("\n");
 }
 
+function addHproperties(node: NoteNode, className: string) {
+  if (!node.data) {
+    node.data = {
+      hName: "div",
+      hProperties: { class: className },
+    };
+  } else if (!node.data.hProperties || !node.data.hProperties.class) {
+    node.data.hProperties = { class: className };
+  } else {
+    node.data.hProperties.class += " " + className;
+  }
+}
+
 export default function noteParsePlugin() {
   // @ts-ignore
   this.parser = parseNote;
@@ -94,7 +107,7 @@ function parseNote(text: string): NoteNode {
     /**
      * Parse the block begin syntax.
      *
-     * Syntax: `'@def' [?!*]? ( ' '+ defName ' '* )? '{'`
+     * Syntax: `'+'? '@def' [?!*]? ( ' '+ defName ' '* )? '{'`
      *
      * @param {number} beginIndex The starting index to parse the syntax.
      * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
@@ -105,33 +118,14 @@ function parseNote(text: string): NoteNode {
       let index = beginIndex,
         style: string | null = null,
         isLink = false;
-      let titleNode: NoteNode = {
-        type: "block-title",
-        children: [],
-        data: {
-          hName: "div",
-          hProperties: { class: "block-title" },
-        },
-      };
-      let bodyNode: NoteNode = {
-        type: "block-body",
-        children: [],
-        data: {
-          hName: "div",
-          hProperties: { class: "block-body" },
-        },
-      };
+      const blockChildren: NoteNode[] = [];
 
       const ok = () => {
-        bodyNode.position = {
-          start: getPosition(index),
-          end: getPosition(index),
-        };
         return {
           endIndex: index,
           matchNode: {
             type: abbr + "-block",
-            children: [titleNode, bodyNode],
+            children: blockChildren,
             position: {
               start: getPosition(beginIndex),
               end: getPosition(index),
@@ -193,13 +187,14 @@ function parseNote(text: string): NoteNode {
           index++;
           if (index === input.length) return nok();
         }
-        titleNode.position = {
-          start: { line: lines[start], column: columns[start], offset: start },
-          end: { line: lines[index], column: columns[index], offset: index },
-        };
         const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0);
-        if (parsedTitle) titleNode.children.push(parsedTitle);
-
+        if (parsedTitle) {
+          parsedTitle.data = {
+            hName: "div",
+            hProperties: { class: "block-title-mdast" },
+          };
+          blockChildren.push(parsedTitle);
+        }
         index++;
         return ok();
       }
@@ -363,37 +358,23 @@ function parseNote(text: string): NoteNode {
       const ast: NoteNode | null = parseNativeMarkdown(input.slice(last, index), indentLevel * 4);
       if (parentNode.type === "root") {
         if (ast) parentNode.children.push(ast);
-        parentNode.children.push(selfNode);
       } else if (parentNode.type.endsWith("-block")) {
-        if (parentNode.state === "body") {
-          if (ast) parentNode.children[1].children.push(ast);
-          parentNode.children[1].children.push(selfNode);
-        } else if (parentNode.state === "extend") {
-          if (ast) parentNode.children[2].children.push(ast);
-          parentNode.children[2].children.push(selfNode);
+        if (ast) {
+          addHproperties(ast, "block-" + parentNode.state + "-mdast");
+          parentNode.children.push(ast);
         }
       }
 
       if (selfNode.type.endsWith("-block")) {
         indentLevel++;
+
+        if (parentNode.type.endsWith("-block")) {
+          addHproperties(selfNode, "block-" + parentNode.state + "-mdast");
+        }
+        parentNode.children.push(selfNode);
         blockStack.push({ node: selfNode, current: endIndex });
       } else if (selfNode.type === "block-separator") {
         if (parentNode.state === "body") {
-          parentNode.children[1].position!.end = getPosition(index);
-
-          let extendNode: NoteNode = {
-            type: "block-extend",
-            children: [],
-            position: {
-              start: getPosition(endIndex),
-              end: getPosition(endIndex),
-            },
-            data: {
-              hName: "div",
-              hProperties: { class: "block-extend" },
-            },
-          };
-          parentNode.children.push(extendNode);
           parentNode.state = "extend";
         }
       }
@@ -408,22 +389,14 @@ function parseNote(text: string): NoteNode {
           if (selfNode) {
             const ast = parseNativeMarkdown(input.slice(last!, index), indentLevel * 4);
             if (selfNode.type.endsWith("-block")) {
-              if (selfNode.state === "body") {
-                if (ast) selfNode.children[1].children.push(ast);
-              } else if (selfNode.state === "extend") {
-                if (ast) selfNode.children[2].children.push(ast);
+              if (ast) {
+                addHproperties(ast, "block-" + selfNode.state + "-mdast");
+                selfNode.children.push(ast);
               }
               indentLevel--;
             }
 
             selfNode.position!.end = getPosition(index + 1);
-            if (selfNode.type.endsWith("-block")) {
-              if (selfNode.state === "body") {
-                selfNode.children[1].position!.end = getPosition(index);
-              } else if (selfNode.state === "extend") {
-                selfNode.children[2].position!.end = getPosition(index);
-              }
-            }
             blockStack[blockStack.length - 1].current = index + 1;
           }
         }
