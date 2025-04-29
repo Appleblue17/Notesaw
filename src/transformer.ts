@@ -3,8 +3,6 @@ import { visit } from "unist-util-visit";
 import type { NoteNode } from "./index.ts";
 import type { Element } from "hast";
 
-const featherPath = "./node_modules/feather-icons/dist/feather-sprite.svg";
-
 export function noteTransformPlugin() {
   return function transformer(tree: Element) {
     return transformNote(tree);
@@ -133,7 +131,7 @@ function transformNote(tree: Element) {
                     type: "element",
                     tagName: "use",
                     properties: {
-                      href: featherPath + "#" + icon,
+                      href: "#" + icon,
                     },
                     children: [],
                   },
