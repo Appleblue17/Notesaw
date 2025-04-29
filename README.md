@@ -1,5 +1,21 @@
 [![Super-Linter](https://github.com/Appleblue17/Notesaw/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
+### Todo
+
+- [ ] Add block link support
+- [ ] Add inline Syntax
+- [ ] Refine and design representation of special blocks
+- [ ] Add support for wiki links
+- [ ] Improve documentation
+
+### Milestones
+
+- [2025-02] Gain inspiration and start project planning.
+- [2025-03] Confirm development path and build on top of [unified](https://github.com/unifiedjs/unified) framework.
+- [2025-03] Start development of the core features.
+- [2025-04-18] Complete the first version of the core features.
+- [2025-04-26] Identify style issues and start working to redesign the style.
+
 ### Reference
 
 - [GFM stylesheet](https://cdnjs.com/libraries/github-markdown-css)
@@ -8,9 +24,7 @@
 
 - [Feather icons](https://feathericons.com/)
 
-# helloworld README
-
-This is the README for your extension "helloworld". After writing up a brief description, we recommend including the following sections.
+<!-- This is the README for your extension. After writing up a brief description, we recommend including the following sections.
 
 ## Features
 
@@ -78,4 +92,4 @@ You can author your README using Visual Studio Code. Here are some useful editor
 * [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
-**Enjoy!**
+**Enjoy!** -->
