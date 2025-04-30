@@ -1,25 +1,41 @@
+/**
+ * @file
+ * This module provides a transformation plugin for converting specialized markdown blocks into HTML elements with appropriate styling and icons. It handles various academic and  informational block types (e.g., theorems, definitions, notes) by applying consistent  styling and iconography based on block type.
+ */
 import { visit } from "unist-util-visit";
 
 import type { NoteNode } from "./index.ts";
 import type { Element } from "hast";
 
+/**
+ * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
+ * @returns {Function} A transformer function that processes the syntax tree.
+ */
 export function noteTransformPlugin() {
   return function transformer(tree: Element) {
     return transformNote(tree);
   };
 }
 
+/**
+ * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
+ * @param {Element} tree - The syntax tree to transform
+ * @returns {Element} The transformed syntax tree
+ */
 function transformNote(tree: Element) {
-  console.log("Transforming Note AST");
   visit(tree, "element", (node: Element) => {
     const classNames = node.properties?.["class"]?.toString();
     const classList = classNames?.split(" ");
     for (const className of classList || []) {
       if (className.endsWith("-block-mdast")) {
+        // Extract block type from class name (removing "-block-mdast" suffix)
         const blockType = className.slice(0, -12);
         const blockTypeCap = blockType.charAt(0).toUpperCase() + blockType.slice(1);
         let icon = "";
+
+        // Assign appropriate icons based on block type
         switch (blockType) {
+          // Academic block types
           case "axiom":
             icon = "check-circle"; // Represents a fundamental truth
             break;
@@ -42,8 +58,9 @@ function transformNote(tree: Element) {
             icon = "corner-right-down"; // Represents a result derived from a theorem
             break;
 
+          // Informational block types
           case "definition":
-            icon = "compass"; // Represents andefinition
+            icon = "compass"; // Represents a definition
             break;
           case "note":
             icon = "bookmark"; // Represents a note or annotation
@@ -61,6 +78,7 @@ function transformNote(tree: Element) {
             icon = "check"; // Represents a solution or answer
             break;
 
+          // Special block types
           case "warning":
             icon = "alert-triangle"; // Represents a warning or caution
             break;
@@ -72,10 +90,12 @@ function transformNote(tree: Element) {
             break;
         }
 
+        // Apply block container class
         node.properties = {
           class: "block-container " + blockType + "-block-container",
         };
 
+        // Create container elements for different parts of the block
         let titleNode: Element = {
           type: "element",
           tagName: "div",
@@ -84,6 +104,7 @@ function transformNote(tree: Element) {
           },
           children: [] as Element[],
         };
+
         let bodyNode: Element = {
           type: "element",
           tagName: "div",
@@ -92,6 +113,7 @@ function transformNote(tree: Element) {
           },
           children: [] as Element[],
         };
+
         let extendNode: Element = {
           type: "element",
           tagName: "div",
@@ -101,6 +123,8 @@ function transformNote(tree: Element) {
           children: [] as Element[],
         };
 
+        // Distribute child elements to appropriate containers
+        // based on their class names
         for (const child of node.children as Element[]) {
           const childClass = child.properties?.["class"]?.toString();
           if (childClass?.includes("block-title-mdast")) {
@@ -112,7 +136,9 @@ function transformNote(tree: Element) {
           }
         }
 
+        // Construct the final block structure with icon and label
         node.children = [
+          // Icon container
           {
             type: "element",
             tagName: "div",
@@ -139,6 +165,7 @@ function transformNote(tree: Element) {
               },
             ],
           },
+          // Block type label
           {
             type: "element",
             tagName: "div",
@@ -154,6 +181,7 @@ function transformNote(tree: Element) {
           },
         ];
 
+        // Add content blocks if they have children
         if (bodyNode.children.length > 0) {
           const blockNode: Element = {
             type: "element",
@@ -169,6 +197,7 @@ function transformNote(tree: Element) {
         }
         if (extendNode.children.length > 0) node.children.push(extendNode);
 
+        // Commented out code for block-link functionality
         // if (classList?.includes("block-link")) {
         //   node.children.unshift({
         //     type: "element",

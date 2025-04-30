@@ -5,6 +5,14 @@ import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
 
+/**
+ * Parses a markdown string using unified with remark plugins.
+ * Converts the string to an AST (Abstract Syntax Tree) representation.
+ *
+ * @param {string} str - The markdown string to parse
+ * @param {number} trailSpaces - Number of leading spaces to trim from each line
+ * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
+ */
 function parseNativeMarkdown(str: string, trailSpaces: number): NoteNode | null {
   const ast = unified()
     .use(remarkParse)
@@ -33,6 +41,13 @@ function trimLeadingSpaces(str: string, count: number): string {
   return lines.join("\n");
 }
 
+/**
+ * Adds HTML properties to a node with specified class name.
+ * This function is used to add styling information to nodes in the AST.
+ *
+ * @param {NoteNode} node - The node to add properties to
+ * @param {string} className - The CSS class name to add
+ */
 function addHproperties(node: NoteNode, className: string) {
   if (!node.data) {
     node.data = {
@@ -46,15 +61,25 @@ function addHproperties(node: NoteNode, className: string) {
   }
 }
 
+/**
+ * Plugin function for unified processor.
+ * Sets the parser to the custom parseNote function.
+ */
 export default function noteParsePlugin() {
   // @ts-ignore
   this.parser = parseNote;
 }
 
 /**
- * Parse the note text with extended syntax, parse bottom native MD by fromMarkdown, and return the whole AST.
- * @param {string} text
- * @returns {NoteNode}
+ * Main note parser function that handles extended syntax.
+ * Parses the note text with custom block syntax, processes native markdown,
+ * and returns a complete AST (Abstract Syntax Tree).
+ *
+ * Handles special block types like axioms, theorems, proofs, etc. with their
+ * own custom syntax and formatting.
+ *
+ * @param {string} text - The note text to parse
+ * @returns {NoteNode} - The parsed AST representing the note structure
  */
 function parseNote(text: string): NoteNode {
   let line = 1,
@@ -103,6 +128,14 @@ function parseNote(text: string): NoteNode {
     };
   };
 
+  /**
+   * Generator function that creates parsers for different types of block syntax.
+   * Each generated parser handles the beginning of a specific block type.
+   *
+   * @param {string} abbr - The abbreviated syntax identifier (e.g., "def", "thm")
+   * @param {string} full - The full name of the block type (e.g., "definition", "theorem")
+   * @returns {Function} - A parser function for the specified block type
+   */
   const blockBeginParserGenerator = (abbr: string, full: string) => {
     /**
      * Parse the block begin syntax.
@@ -204,12 +237,13 @@ function parseNote(text: string): NoteNode {
   };
 
   /**
-   * Parse the block separator syntax.
+   * Parses block separator syntax (horizontal rule with equal signs).
+   * Used to separate different sections within blocks.
    *
    * Syntax: `^( *)={3,}( *)$`
    *
-   * @param {number} beginIndex The starting index to parse the syntax.
-   * @returns `null` if match failed; `{ endIndex, matchNode: {type} }` if match succeeded.
+   * @param {number} beginIndex - The starting index to parse the syntax
+   * @returns {null|Object} - null if match failed; object with endIndex and matchNode if succeeded
    */
   const blockSeparatorParser = (
     beginIndex: number
