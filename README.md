@@ -7,10 +7,9 @@ Next version: 1.0.0
 #### Notesaw Renderer
 
 - [x] Add support for basic markdown syntax
-- [x] Add support for $\KaTeX$ math syntax
+- [x] Add support for KaTeX math syntax
 - [ ] Add support for code blocks highlighting
 - [ ] Add support for code blocks with line numbers
-
 - [x] Basic block syntax support
 - [ ] Block link support
 - [ ] Inline Syntax
@@ -21,6 +20,7 @@ Next version: 1.0.0
 - [x] VScode extension framework
 - [x] Preview button to the editor
 - [x] Real-time rendering
+  - [x] Partial rendering to improve performance
 - [ ] Scroll Synchronization
   - [ ] Editor to preview
   - [ ] Preview to editor
@@ -29,11 +29,10 @@ Next version: 1.0.0
 
 - [ ] Refine and design representation of special blocks
 - [ ] Wiki links support
-
 - [ ] Support keypoint summary
 - [ ] Night mode support
 - [ ] Syntax highlighting
-- [ ] Formatting support
+- [ ] Editor formatting
 - [ ] Export to PDF
 
 ### Milestones
@@ -47,9 +46,7 @@ Next version: 1.0.0
 ### Reference
 
 - [GFM stylesheet](https://cdnjs.com/libraries/github-markdown-css)
-
 - [KaTeX stylesheet](https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.css)
-
 - [Feather icons](https://feathericons.com/)
 
 <!-- This is the README for your extension. After writing up a brief description, we recommend including the following sections.
