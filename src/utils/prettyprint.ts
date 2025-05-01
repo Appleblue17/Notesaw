@@ -7,7 +7,7 @@ const lastChildIndent = "└───",
 const attrIndent = "│ ",
   emptyAttrIndent = "  ";
 
-function prettyPrintArray(node: NoteNode): string[] {
+function prettyPrintArray(node: any): string[] {
   const ret: string[] = [];
 
   let positionStartStr = "???",
@@ -73,7 +73,7 @@ function prettyPrintArray(node: NoteNode): string[] {
   return ret;
 }
 
-function prettyPrint(node: NoteNode): string {
+function prettyPrint(node: any): string {
   const ret = prettyPrintArray(node);
   const str = ret.join("\n");
   return str;

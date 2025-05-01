@@ -4,6 +4,8 @@
  * This is a wrapper of the whole Notesaw pipeline. It processes a note document, converting it to HTML,
  */
 
+import type { Root as HastRoot } from "hast";
+import type { Root as MdastRoot } from "mdast";
 import { NoteNode } from "./index.ts";
 import { unified } from "unified";
 import remarkRehype from "remark-rehype";
@@ -61,21 +63,9 @@ export default async function noteProcess(
   featherSvgPath: string,
   morphdomUri: string,
   webviewScriptUri: string,
-  cspSource: string,
-  pure: boolean = false
+  cspSource: string
 ): Promise<string> {
   const docWithMath: string = preprocessMath(doc);
-
-  if (pure) {
-    const vfile = await unified()
-      .use(noteParsePlugin) // Custom parser processes raw text first
-      .use(remarkRehype) // Convert Markdown parts to HTML
-      .use(noteTransformPlugin) // Transform custom AST
-      .use(rehypeKatex) // Add KaTeX support
-      .use(rehypeStringify) // Stringify the final HTML
-      .process(docWithMath);
-    return String(vfile);
-  }
 
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
@@ -116,4 +106,32 @@ export default async function noteProcess(
 
   const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
   return finalHtml;
+}
+
+export async function noteProcessPure(doc: string): Promise<{ hast: HastRoot; html: String }> {
+  const docWithMath: string = preprocessMath(doc);
+
+  // Create a single unified processor with all plugins
+  const processor = unified()
+    .use(noteParsePlugin)
+    .use(remarkRehype)
+    .use(noteTransformPlugin)
+    .use(rehypeKatex)
+    .use(rehypeStringify);
+
+  // This is a mdast (Markdown AST) Root node
+  const mdast = processor.parse(docWithMath) as MdastRoot;
+  console.log("mdast");
+  console.log(prettyPrint(mdast)); // Debug intermediate tree
+
+  // Process the markdown AST to get HTML AST
+  const hast = (await processor.run(mdast)) as HastRoot;
+  hast.position = mdast.position; // The root original position need to be set manually
+
+  console.log("hast");
+  console.log(prettyPrint(hast)); // Debug intermediate tree
+  // Generate the final HTML string
+  const html = String(processor.stringify(hast));
+
+  return { hast, html };
 }

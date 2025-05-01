@@ -9,7 +9,6 @@ import type { Element } from "hast";
 
 /**
  * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
- * @returns {Function} A transformer function that processes the syntax tree.
  */
 export function noteTransformPlugin() {
   return function transformer(tree: Element) {
@@ -17,10 +16,23 @@ export function noteTransformPlugin() {
   };
 }
 
+function updatePosition(node: Element) {
+  if (node.children && node.children.length > 0) {
+    const start = node.children[0].position?.start;
+    const end = node.children[node.children.length - 1].position?.end;
+
+    if (start && end) {
+      node.position = {
+        start,
+        end,
+      };
+    }
+  }
+}
+
 /**
  * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
  * @param {Element} tree - The syntax tree to transform
- * @returns {Element} The transformed syntax tree
  */
 function transformNote(tree: Element) {
   visit(tree, "element", (node: Element) => {
@@ -135,6 +147,9 @@ function transformNote(tree: Element) {
             extendNode.children.push(child);
           }
         }
+        updatePosition(titleNode);
+        updatePosition(bodyNode);
+        updatePosition(extendNode);
 
         // Construct the final block structure with icon and label
         node.children = [
@@ -182,20 +197,21 @@ function transformNote(tree: Element) {
         ];
 
         // Add content blocks if they have children
-        if (bodyNode.children.length > 0) {
-          const blockNode: Element = {
-            type: "element",
-            tagName: "div",
-            properties: {
-              class: "block-card",
-            },
-            children: [] as Element[],
-          };
-          if (titleNode.children.length > 0) blockNode.children.push(titleNode);
-          blockNode.children.push(bodyNode);
-          node.children.push(blockNode);
-        }
+        const blockNode: Element = {
+          type: "element",
+          tagName: "div",
+          properties: {
+            class: "block-card",
+          },
+          children: [] as Element[],
+        };
+        if (titleNode.children.length > 0) blockNode.children.push(titleNode);
+        blockNode.children.push(bodyNode);
+        node.children.push(blockNode);
+
         if (extendNode.children.length > 0) node.children.push(extendNode);
+
+        updatePosition(blockNode);
 
         // Commented out code for block-link functionality
         // if (classList?.includes("block-link")) {

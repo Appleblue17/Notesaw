@@ -6,62 +6,6 @@ import remarkMath from "remark-math";
 import type { NoteNode } from "./index.d.ts";
 
 /**
- * Parses a markdown string using unified with remark plugins.
- * Converts the string to an AST (Abstract Syntax Tree) representation.
- *
- * @param {string} str - The markdown string to parse
- * @param {number} trailSpaces - Number of leading spaces to trim from each line
- * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
- */
-function parseNativeMarkdown(str: string, trailSpaces: number): NoteNode | null {
-  const ast = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkMath)
-    .parse(trimLeadingSpaces(str, trailSpaces)) as NoteNode;
-
-  if (!ast.children.length) return null;
-  ast.type = "markdown";
-  return ast;
-}
-
-/**
- * Trim leading spaces of given number from the string.
- * @param {string} str
- * @param {number} count
- * @returns {string}
- */
-function trimLeadingSpaces(str: string, count: number): string {
-  const lines = str.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    let trimNum = 0;
-    while (trimNum < count && trimNum < lines[i].length && lines[i][trimNum] === " ") trimNum++;
-    lines[i] = lines[i].slice(trimNum);
-  }
-  return lines.join("\n");
-}
-
-/**
- * Adds HTML properties to a node with specified class name.
- * This function is used to add styling information to nodes in the AST.
- *
- * @param {NoteNode} node - The node to add properties to
- * @param {string} className - The CSS class name to add
- */
-function addHproperties(node: NoteNode, className: string) {
-  if (!node.data) {
-    node.data = {
-      hName: "div",
-      hProperties: { class: className },
-    };
-  } else if (!node.data.hProperties || !node.data.hProperties.class) {
-    node.data.hProperties = { class: className };
-  } else {
-    node.data.hProperties.class += " " + className;
-  }
-}
-
-/**
  * Plugin function for unified processor.
  * Sets the parser to the custom parseNote function.
  */
@@ -120,6 +64,15 @@ function parseNote(text: string): NoteNode {
     }
   }
 
+  /**
+   * Returns a position object for a given index in the text.
+   *
+   * @param index - The index in the text for which to get the position
+   * @returns A position object containing line, column, and offset information
+   * @property {number} line - The line number at the given index
+   * @property {number} column - The column number at the given index
+   * @property {number} offset - The offset (same as the input index)
+   */
   const getPosition = (index: number) => {
     return {
       line: lines[index],
@@ -128,6 +81,81 @@ function parseNote(text: string): NoteNode {
     };
   };
 
+  /**
+   * Parses a markdown string using unified with remark plugins.
+   * Converts the string to an AST (Abstract Syntax Tree) representation.
+   *
+   * @param {string} str - The markdown string to parse
+   * @param {number} trailSpaces - Number of leading spaces to trim from each line
+   * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
+   */
+  function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
+    const lines = str.split("\n");
+    const trimNums: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      let trimNum = 0;
+      while (trimNum < trailSpaces && trimNum < lines[i].length && lines[i][trimNum] === " ")
+        trimNum++;
+      lines[i] = lines[i].slice(trimNum);
+
+      if (i == 0) trimNums.push(trimNum);
+      else trimNums.push(trimNums[i - 1] + trimNum);
+    }
+    const trimedLines = lines.join("\n");
+
+    const ast = unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      .use(remarkMath)
+      .parse(trimedLines) as NoteNode;
+
+    if (!ast.children.length) return null;
+
+    /**
+     * Recursively updates position information for all nodes in the AST.
+     * Corrects offsets by accounting for the leading spaces that were trimmed
+     * and the offset of the current section within the larger document.
+     *
+     * @param {NoteNode} node - The node to process and update position for
+     */
+    const traverse = (node: NoteNode) => {
+      if (node.position) {
+        const startOffset =
+          node.position.start.offset! + offset + trimNums[node.position.start.line - 1];
+        const endOffset = node.position.end.offset! + offset + trimNums[node.position.end.line - 1];
+        node.position.start = getPosition(startOffset);
+        node.position.end = getPosition(endOffset);
+      }
+      if (!node.children) return;
+      for (const child of node.children) {
+        traverse(child);
+      }
+    };
+
+    ast.type = "markdown";
+    traverse(ast);
+    return ast;
+  }
+
+  /**
+   * Adds HTML representation properties to a node with the specified class name.
+   * This function enhances nodes in the AST with styling information for rendering.
+   *
+   * @param {NoteNode} node - The node to add HTML properties to
+   * @param {string} className - The CSS class name to add to the node
+   */
+  function addHproperties(node: NoteNode, className: string) {
+    if (!node.data) {
+      node.data = {
+        hName: "div",
+        hProperties: { class: className },
+      };
+    } else if (!node.data.hProperties || !node.data.hProperties.class) {
+      node.data.hProperties = { class: className };
+    } else {
+      node.data.hProperties.class += " " + className;
+    }
+  }
   /**
    * Generator function that creates parsers for different types of block syntax.
    * Each generated parser handles the beginning of a specific block type.
@@ -220,7 +248,7 @@ function parseNote(text: string): NoteNode {
           index++;
           if (index === input.length) return nok();
         }
-        const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0);
+        const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0, start);
         if (parsedTitle) {
           parsedTitle.data = {
             hName: "div",
@@ -389,7 +417,11 @@ function parseNote(text: string): NoteNode {
       const parentNode = lastBlock.node;
       const last = lastBlock.current;
 
-      const ast: NoteNode | null = parseNativeMarkdown(input.slice(last, index), indentLevel * 4);
+      const ast: NoteNode | null = parseNativeMarkdown(
+        input.slice(last, index),
+        indentLevel * 4,
+        last
+      );
       if (parentNode.type === "root") {
         if (ast) parentNode.children.push(ast);
       } else if (parentNode.type.endsWith("-block")) {
@@ -421,7 +453,7 @@ function parseNote(text: string): NoteNode {
           const { node: selfNode, current: last } = blockStack.pop()!;
 
           if (selfNode) {
-            const ast = parseNativeMarkdown(input.slice(last!, index), indentLevel * 4);
+            const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
             if (selfNode.type.endsWith("-block")) {
               if (ast) {
                 addHproperties(ast, "block-" + selfNode.state + "-mdast");
@@ -442,7 +474,7 @@ function parseNote(text: string): NoteNode {
     throw new Error("Curly braces are not matched.");
   }
   const { node, current: last } = blockStack[0];
-  const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4);
+  const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4, last);
   if (ast) node.children.push(ast);
   blockStack[0].node.position!.end = getPosition(length);
 

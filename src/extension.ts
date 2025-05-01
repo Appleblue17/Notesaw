@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import noteProcess from "./note.ts";
+import noteProcess, { noteProcessPure } from "./note.ts";
 
 /**
  * Activates the Notesaw extension
@@ -92,17 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
          */
         const updateWebview = async (document: vscode.TextDocument) => {
           if (!panel) return;
-          const pureHtml = await noteProcess(
-            document.getText(),
-            noteCssUri.toString(),
-            ghmCssUri.toString(),
-            katexCssUri.toString(),
-            featherSvgPath,
-            morphdomUri.toString(),
-            webviewScriptUri.toString(),
-            panel.webview.cspSource,
-            true // Set pure to true for only body content
-          );
+          const pureHtml = await noteProcessPure(document.getText());
           panel.webview.postMessage({
             command: "updateHtml",
             html: pureHtml,
