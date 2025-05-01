@@ -2,11 +2,39 @@
 
 ### Todo
 
-- [ ] Add block link support
-- [ ] Add inline Syntax
+Next version: 1.0.0
+
+#### Notesaw Renderer
+
+- [x] Add support for basic markdown syntax
+- [x] Add support for $\KaTeX$ math syntax
+- [ ] Add support for code blocks highlighting
+- [ ] Add support for code blocks with line numbers
+
+- [x] Basic block syntax support
+- [ ] Block link support
+- [ ] Inline Syntax
+- [ ] Error handling
+
+#### Notesaw Editor
+
+- [x] VScode extension framework
+- [x] Preview button to the editor
+- [x] Real-time rendering
+- [ ] Scroll Synchronization
+  - [ ] Editor to preview
+  - [ ] Preview to editor
+
+#### Future Plans
+
 - [ ] Refine and design representation of special blocks
-- [ ] Add support for wiki links
-- [ ] Improve documentation
+- [ ] Wiki links support
+
+- [ ] Support keypoint summary
+- [ ] Night mode support
+- [ ] Syntax highlighting
+- [ ] Formatting support
+- [ ] Export to PDF
 
 ### Milestones
 
@@ -14,7 +42,7 @@
 - [2025-03] Confirm development path and build on top of [unified](https://github.com/unifiedjs/unified) framework.
 - [2025-03] Start development of the core features.
 - [2025-04-18] Complete the first version of the core features.
-- [2025-04-26] Identify style issues and start working to redesign the style.
+- [2025-04-26] Identify style issues and redesign the style.
 
 ### Reference
 
