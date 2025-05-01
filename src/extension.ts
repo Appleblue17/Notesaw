@@ -3,45 +3,54 @@
 import * as vscode from "vscode";
 import noteProcess from "./note.ts";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+/**
+ * Activates the Notesaw extension
+ * This method is called when the extension is activated for the first time
+ * @param context The extension context provided by VS Code
+ */
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "notesaw" is now active!');
 
+  // Track the preview panel so we can reuse or update it
   let panel: vscode.WebviewPanel | undefined = undefined;
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
+  // Register the command to show the Notesaw preview
   context.subscriptions.push(
     vscode.commands.registerCommand("notesaw.showPreview", async () => {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
+        // Verify the document is a Notesaw file
         if (editor.document.languageId !== "notesaw") {
           vscode.window.showErrorMessage("Please open a notesaw file.");
           return;
         }
 
+        // Create the preview panel if it doesn't exist
         if (!panel) {
           panel = vscode.window.createWebviewPanel(
-            "notesaw",
-            "Notesaw",
-            { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+            "notesaw", // Type ID
+            "Notesaw", // Panel title
+            { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, // Show beside the current editor
             {
-              localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "assets")], // Only allow access to this directory
-              enableScripts: true, // Make sure scripts are enabled if needed
+              localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "assets")], // Security: restrict resources to assets folder
+              enableScripts: true, // Allow JavaScript in the webview
             }
           );
 
+          // Handle panel disposal
           panel.onDidDispose(
             () => {
-              panel = undefined; // Reset the panel when it's closed
+              panel = undefined; // Reset the panel reference when closed
             },
             null,
             context.subscriptions
           );
         }
 
+        // Show the panel next to the editor
+        panel.reveal(vscode.ViewColumn.Beside, true);
+
+        // Prepare resource URIs for the webview
         const noteCssUri = panel.webview.asWebviewUri(
           vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "note.css")
         );
@@ -57,20 +66,60 @@ export function activate(context: vscode.ExtensionContext) {
           "icon",
           "feather-sprite.svg"
         ).fsPath;
-        const content = editor.document.getText();
-        const resHtml = await noteProcess(
-          content,
-          noteCssUri.toString(),
-          ghmCssUri.toString(),
-          katexCssUri.toString(),
-          featherSvgPath,
-          panel.webview.cspSource
+
+        /**
+         * Updates the preview webview with content from the given document
+         * @param document The text document to render in the preview
+         */
+        const updateWebview = async (document: vscode.TextDocument) => {
+          if (!panel) return;
+          const content = document.getText();
+          const resHtml = await noteProcess(
+            content,
+            noteCssUri.toString(),
+            ghmCssUri.toString(),
+            katexCssUri.toString(),
+            featherSvgPath,
+            panel.webview.cspSource
+          );
+          panel.webview.html = resHtml;
+        };
+
+        // Initial content render
+        updateWebview(editor.document);
+
+        // Set up event listeners for content updates
+
+        // Update when text changes in the current document
+        vscode.workspace.onDidChangeTextDocument(
+          (e) => {
+            if (e.document.languageId === "notesaw" && panel?.visible) {
+              updateWebview(e.document);
+            }
+          },
+          null,
+          context.subscriptions
         );
-        panel.webview.html = resHtml;
+
+        // Update when the active editor changes to keep preview in sync
+        vscode.window.onDidChangeActiveTextEditor(
+          (newEditor) => {
+            if (newEditor && newEditor.document.languageId === "notesaw" && panel?.visible) {
+              updateWebview(newEditor.document);
+            }
+          },
+          null,
+          context.subscriptions
+        );
       }
     })
   );
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+/**
+ * Deactivates the extension
+ * This method is called when the extension is deactivated
+ */
+export function deactivate() {
+  // Clean up resources if needed
+}
