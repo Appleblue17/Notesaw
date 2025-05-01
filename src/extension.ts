@@ -66,6 +66,25 @@ export function activate(context: vscode.ExtensionContext) {
           "icon",
           "feather-sprite.svg"
         ).fsPath;
+        const morphdomUri = panel.webview.asWebviewUri(
+          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "morphdom-umd.min.js")
+        );
+        const webviewScriptUri = panel.webview.asWebviewUri(
+          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "webview-script.js")
+        );
+
+        // Initialize the webview with the HTML content
+        const resHtml = await noteProcess(
+          editor.document.getText(),
+          noteCssUri.toString(),
+          ghmCssUri.toString(),
+          katexCssUri.toString(),
+          featherSvgPath,
+          morphdomUri.toString(),
+          webviewScriptUri.toString(),
+          panel.webview.cspSource
+        );
+        panel.webview.html = resHtml;
 
         /**
          * Updates the preview webview with content from the given document
@@ -73,20 +92,22 @@ export function activate(context: vscode.ExtensionContext) {
          */
         const updateWebview = async (document: vscode.TextDocument) => {
           if (!panel) return;
-          const content = document.getText();
-          const resHtml = await noteProcess(
-            content,
+          const pureHtml = await noteProcess(
+            document.getText(),
             noteCssUri.toString(),
             ghmCssUri.toString(),
             katexCssUri.toString(),
             featherSvgPath,
-            panel.webview.cspSource
+            morphdomUri.toString(),
+            webviewScriptUri.toString(),
+            panel.webview.cspSource,
+            true // Set pure to true for only body content
           );
-          panel.webview.html = resHtml;
+          panel.webview.postMessage({
+            command: "updateHtml",
+            html: pureHtml,
+          });
         };
-
-        // Initial content render
-        updateWebview(editor.document);
 
         // Set up event listeners for content updates
 

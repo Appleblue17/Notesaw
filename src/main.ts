@@ -8,7 +8,10 @@ const res: string = await noteProcess(
   "./assets/styles/github-markdown.css",
   "./assets/styles/katex.min.css",
   "./assets/icon/feather-sprite.svg",
-  "self"
+  "./assets/script/morphdom-umd.min.js",
+  "./assets/script/webview-script.js",
+  "self",
+  true
 );
 
 await fs.writeFile("./output.html", res, "utf-8");

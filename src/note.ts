@@ -48,6 +48,8 @@ const preprocessMath = (input: string): string => {
  * @param ghmCssUri - URI to the GitHub Markdown CSS stylesheet
  * @param katexCssUri - URI to the KaTeX CSS stylesheet
  * @param featherSvgPath - Path to the Feather SVG icon file
+ * @param morphdomUri - URI to the morphdom library
+ * @param webviewScriptUri - URI to the webview script
  * @param cspSource - Content Security Policy source
  * @returns Promise resolving to the final HTML document
  */
@@ -57,29 +59,45 @@ export default async function noteProcess(
   ghmCssUri: string,
   katexCssUri: string,
   featherSvgPath: string,
-  cspSource: string
+  morphdomUri: string,
+  webviewScriptUri: string,
+  cspSource: string,
+  pure: boolean = false
 ): Promise<string> {
   const docWithMath: string = preprocessMath(doc);
+
+  if (pure) {
+    const vfile = await unified()
+      .use(noteParsePlugin) // Custom parser processes raw text first
+      .use(remarkRehype) // Convert Markdown parts to HTML
+      .use(noteTransformPlugin) // Transform custom AST
+      .use(rehypeKatex) // Add KaTeX support
+      .use(rehypeStringify) // Stringify the final HTML
+      .process(docWithMath);
+    return String(vfile);
+  }
+
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
-    .use(() => (ast: NoteNode) => {
-      // console.log("After remarkParse");
-      // console.log(prettyPrint(ast)); // Debug intermediate tree
-    })
+    // .use(() => (ast: NoteNode) => {
+    //   console.log("After remarkParse");
+    //   console.log(prettyPrint(ast)); // Debug intermediate tree
+    // })
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(noteTransformPlugin) // Transform custom AST
     .use(rehypeKatex) // Add KaTeX support
-    .use(() => (ast: NoteNode) => {
-      // console.log("After remarkRehype");
-      // console.log(prettyPrint(ast)); // Debug after custom compiler
-    })
+    // .use(() => (ast: NoteNode) => {
+    //   console.log("After remarkRehype");
+    //   console.log(prettyPrint(ast)); // Debug after custom compiler
+    // })
     .use(rehypeFormat)
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
+      js: [morphdomUri, webviewScriptUri],
       meta: [
         {
           "http-equiv": "Content-Security-Policy",
-          content: `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}`,
+          content: `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; script-src ${cspSource}`,
         },
       ],
     })
@@ -94,8 +112,8 @@ export default async function noteProcess(
 
   // Insert the SVG sprite into the HTML before closing body tag
   const bodyCloseTag = "</body>";
-  const svgTag = `<div style="display:none">${svgContent}</div>\n${bodyCloseTag}`;
+  const svgTag = `<div style="display:none">${svgContent}</div>\n`;
 
-  const finalHtml = htmlString.replace(bodyCloseTag, svgTag);
+  const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
   return finalHtml;
 }
