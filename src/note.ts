@@ -20,20 +20,6 @@ import noteParsePlugin from "./parser.ts";
 import { noteTransformPlugin } from "./transformer.ts";
 
 /**
- * Preprocesses mathematical formulas in the document
- *
- * Ensures that all double-dollar enclosed math expressions ($$...$$)
- * are properly formatted for display mode math rendering.
- *
- * @param input - Raw document text containing math formulas
- * @returns String with properly formatted math expressions
- */
-const preprocessMath = (input: string): string => {
-  // Ensure all $$...$$ formulas are treated as display mode
-  return input.replace(/\$\$([^$]*)\$\$/gs, "$$$$\n$1\n$$$$\n");
-};
-
-/**
  * Processes a note document and converts it to HTML
  *
  * This function processes the markdown note through a pipeline of transformations:
@@ -65,8 +51,6 @@ export default async function noteProcess(
   webviewScriptUri: string,
   cspSource: string
 ): Promise<string> {
-  const docWithMath: string = preprocessMath(doc);
-
   const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
@@ -75,13 +59,13 @@ export default async function noteProcess(
     //   console.log(prettyPrint(ast)); // Debug intermediate tree
     // })
     .use(remarkRehype) // Convert Markdown parts to HTML
-    .use(noteTransformPlugin, map) // Transform custom AST
     .use(rehypeKatex) // Add KaTeX support
+    .use(rehypeFormat)
+    .use(noteTransformPlugin, map) // Transform custom AST
     // .use(() => (ast: NoteNode) => {
     //   console.log("After remarkRehype");
     //   console.log(prettyPrint(ast)); // Debug after custom compiler
     // })
-    .use(rehypeFormat)
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
       js: [morphdomUri, webviewScriptUri],
@@ -93,7 +77,7 @@ export default async function noteProcess(
       ],
     })
     .use(rehypeStringify) // Stringify the final HTML
-    .process(docWithMath);
+    .process(doc);
 
   const htmlString = String(vfile);
 
@@ -111,27 +95,25 @@ export default async function noteProcess(
 export async function noteProcessPure(
   doc: string
 ): Promise<{ html: String; mapLast: String[]; mapNext: String[] }> {
-  const docWithMath: string = preprocessMath(doc);
   const map: String[] = [];
 
   // Create a single unified processor with all plugins
   const processor = unified()
     .use(noteParsePlugin)
     .use(remarkRehype)
-    .use(noteTransformPlugin, map)
     .use(rehypeKatex)
     .use(rehypeFormat)
+    .use(noteTransformPlugin, map)
     .use(rehypeStringify);
 
   // This is a mdast (Markdown AST) Root node
-  const mdast = processor.parse(docWithMath) as MdastRoot;
+  const mdast = processor.parse(doc) as MdastRoot;
 
   const totalLines = mdast.position!.end.line;
   for (let i = 0; i <= totalLines; i++) map.push("");
 
   // Process the markdown AST to get HTML AST
   const hast = (await processor.run(mdast)) as HastRoot;
-  hast.position = mdast.position; // The root original position need to be set manually
 
   const mapLast = [...map],
     mapNext = [...map];

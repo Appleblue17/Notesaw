@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
+import { start } from "repl";
 
 /**
  * Plugin function for unified processor.
@@ -91,15 +92,26 @@ function parseNote(text: string): NoteNode {
    */
   function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
     const lines = str.split("\n");
-    const trimNums: number[] = [];
+    const trimNums: number[] = [0],
+      mathNums: number[] = [0];
     for (let i = 0; i < lines.length; i++) {
       let trimNum = 0;
       while (trimNum < trailSpaces && trimNum < lines[i].length && lines[i][trimNum] === " ")
         trimNum++;
       lines[i] = lines[i].slice(trimNum);
 
-      if (i == 0) trimNums.push(trimNum);
-      else trimNums.push(trimNums[i - 1] + trimNum);
+      trimNums.push(trimNums[trimNums.length - 1] + trimNum);
+      mathNums.push(mathNums[mathNums.length - 1]);
+
+      // Match `\$\$([^$]*)\$\$` and replace with `$$\n$1\n$$\n`
+      const mathRegex = /\$\$([^$\n]*)\$\$/;
+      let match;
+      while ((match = mathRegex.exec(lines[i])) !== null) {
+        lines[i] = lines[i].replace(mathRegex, "$$$$\n$1\n$$$$\n");
+        mathNums.push(mathNums[mathNums.length - 1]);
+        mathNums.push(mathNums[mathNums.length - 1] + 1);
+        mathNums.push(mathNums[mathNums.length - 1]);
+      }
     }
     const trimedLines = lines.join("\n");
 
@@ -120,11 +132,16 @@ function parseNote(text: string): NoteNode {
      */
     const traverse = (node: NoteNode) => {
       if (node.position) {
+        const startLine = node.position.start.line - mathNums[node.position.start.line - 1] * 3;
+        const endLine = node.position.end.line - mathNums[node.position.end.line] * 3;
         const startOffset =
-          node.position.start.offset! + offset + trimNums[node.position.start.line - 1];
-        const endOffset = node.position.end.offset! + offset + trimNums[node.position.end.line - 1];
-        node.position.start = getPosition(startOffset);
-        node.position.end = getPosition(endOffset);
+          node.position.start.offset! - mathNums[node.position.start.line - 1] * 3;
+        const endOffset = node.position.end.offset! - mathNums[node.position.end.line] * 3;
+        const startPos = startOffset + offset + trimNums[startLine];
+        const endPos = endOffset + offset + trimNums[endLine];
+
+        node.position.start = getPosition(startPos);
+        node.position.end = getPosition(endPos);
       }
       if (!node.children) return;
       for (const child of node.children) {

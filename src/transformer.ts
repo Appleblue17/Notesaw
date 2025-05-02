@@ -35,6 +35,8 @@ function updatePosition(node: Element) {
  * @param {Element} tree - The syntax tree to transform
  */
 function transformNote(tree: Element, map: String[]) {
+  tree.position = tree.children[0].position;
+
   visit(tree, "element", (node: Element) => {
     const classNames = node.properties?.["class"]?.toString();
     const classList = classNames?.split(" ");
