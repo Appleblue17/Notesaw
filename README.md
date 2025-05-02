@@ -22,8 +22,8 @@ Next version: 1.0.0
 - [x] Real-time rendering
   - [x] Partial rendering to improve performance
 - [ ] Scroll Synchronization
-  - [ ] Editor to preview
-  - [ ] Preview to editor
+  - [x] Editor to preview
+  - [ ] Fix KaTeX position issue
 
 #### Future Plans
 

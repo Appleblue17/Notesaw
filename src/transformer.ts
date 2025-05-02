@@ -5,14 +5,14 @@
 import { visit } from "unist-util-visit";
 
 import type { NoteNode } from "./index.ts";
-import type { Element } from "hast";
+import type { Comment, Element, ElementContent, Text } from "hast";
 
 /**
  * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
  */
-export function noteTransformPlugin() {
+export function noteTransformPlugin(map: String[]) {
   return function transformer(tree: Element) {
-    return transformNote(tree);
+    return transformNote(tree, map);
   };
 }
 
@@ -34,7 +34,7 @@ function updatePosition(node: Element) {
  * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
  * @param {Element} tree - The syntax tree to transform
  */
-function transformNote(tree: Element) {
+function transformNote(tree: Element, map: String[]) {
   visit(tree, "element", (node: Element) => {
     const classNames = node.properties?.["class"]?.toString();
     const classList = classNames?.split(" ");
@@ -280,6 +280,27 @@ function transformNote(tree: Element) {
         // });
         // }
       }
+    }
+  });
+
+  let count = 0;
+  visit(tree, "element", (node: Element) => {
+    if (node.position) {
+      const start = node.position.start,
+        end = node.position.end;
+      const id = "n-" + start.line + "-" + end.line + "-" + count;
+      count++;
+      // Use data property to store custom attributes
+      node.properties.id = id;
+
+      let currentLine = start.line;
+      for (let child of node.children) {
+        if (child.type === "text" || !child.position) continue;
+        const childStartLine = child.position.start.line;
+        for (let i = currentLine; i < childStartLine; i++) map[i] = id;
+        currentLine = child.position.end.line + 1;
+      }
+      for (let i = currentLine; i <= end.line; i++) map[i] = id;
     }
   });
 }

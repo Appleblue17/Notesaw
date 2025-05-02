@@ -67,6 +67,7 @@ export default async function noteProcess(
 ): Promise<string> {
   const docWithMath: string = preprocessMath(doc);
 
+  const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
     // .use(() => (ast: NoteNode) => {
@@ -74,7 +75,7 @@ export default async function noteProcess(
     //   console.log(prettyPrint(ast)); // Debug intermediate tree
     // })
     .use(remarkRehype) // Convert Markdown parts to HTML
-    .use(noteTransformPlugin) // Transform custom AST
+    .use(noteTransformPlugin, map) // Transform custom AST
     .use(rehypeKatex) // Add KaTeX support
     // .use(() => (ast: NoteNode) => {
     //   console.log("After remarkRehype");
@@ -108,30 +109,51 @@ export default async function noteProcess(
   return finalHtml;
 }
 
-export async function noteProcessPure(doc: string): Promise<{ hast: HastRoot; html: String }> {
+export async function noteProcessPure(
+  doc: string
+): Promise<{ html: String; mapLast: String[]; mapNext: String[] }> {
   const docWithMath: string = preprocessMath(doc);
+  const map: String[] = [];
 
   // Create a single unified processor with all plugins
   const processor = unified()
     .use(noteParsePlugin)
     .use(remarkRehype)
-    .use(noteTransformPlugin)
+    .use(noteTransformPlugin, map)
     .use(rehypeKatex)
+    .use(rehypeFormat)
     .use(rehypeStringify);
 
   // This is a mdast (Markdown AST) Root node
   const mdast = processor.parse(docWithMath) as MdastRoot;
-  console.log("mdast");
-  console.log(prettyPrint(mdast)); // Debug intermediate tree
+  // console.log("mdast");
+  // console.log(prettyPrint(mdast)); // Debug intermediate tree
+
+  const totalLines = mdast.position!.end.line;
+  console.log("Total lines in the document: ", totalLines);
+  for (let i = 0; i <= totalLines; i++) {
+    map.push("");
+  }
 
   // Process the markdown AST to get HTML AST
   const hast = (await processor.run(mdast)) as HastRoot;
   hast.position = mdast.position; // The root original position need to be set manually
 
-  console.log("hast");
-  console.log(prettyPrint(hast)); // Debug intermediate tree
+  const mapLast = [...map],
+    mapNext = [...map];
+  for (let i = 1; i < map.length; i++) {
+    if (mapLast[i] === "") mapLast[i] = mapLast[i - 1];
+  }
+  for (let i = map.length - 2; i >= 0; i--) {
+    if (map[i] === "") mapNext[i] = mapNext[i + 1];
+  }
+  // for (let i = 0; i < map.length; i++) {
+  //   console.log(i, map[i], mapLast[i], mapNext[i]);
+  // }
+  // console.log("hast");
+  // console.log(prettyPrint(hast)); // Debug intermediate tree
   // Generate the final HTML string
   const html = String(processor.stringify(hast));
 
-  return { hast, html };
+  return { html, mapLast, mapNext };
 }
