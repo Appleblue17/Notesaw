@@ -21,12 +21,13 @@ Next version: 1.0.0
 - [x] Preview button to the editor
 - [x] Real-time rendering
   - [x] Partial rendering to improve performance
-- [ ] Scroll Synchronization
+- [x] Scroll Synchronization
   - [x] Editor to preview
-  - [ ] Fix KaTeX position issue
+  - [x] Fix KaTeX position issue
 
 #### Future Plans
 
+- [ ] Notesaw language support
 - [ ] Refine and design representation of special blocks
 - [ ] Wiki links support
 - [ ] Support keypoint summary
@@ -34,14 +35,26 @@ Next version: 1.0.0
 - [ ] Syntax highlighting
 - [ ] Editor formatting
 - [ ] Export to PDF
+- [ ] User-friendly UI / UX
+- [ ] Customizeable settings
+
+#### Settings
+
+- [Enable]/Disable KaTeX
+  - [Enable]/Disable inline KaTeX display mode
+- [Enable]/Disable GFM
+- [Instant]/Smooth/Disable scroll synchronization
+- Bright/[Dark]/Auto theme
+- [Real-time]/At save/Disable auto-rendering
 
 ### Milestones
 
 - [2025-02] Gain inspiration and start project planning.
-- [2025-03] Confirm development path and build on top of [unified](https://github.com/unifiedjs/unified) framework.
-- [2025-03] Start development of the core features.
+- [2025-03] Confirm development path: build on top of [unified](https://github.com/unifiedjs/unified) framework.
+- [2025-03] Start developing core features.
 - [2025-04-18] Complete the first version of the core features.
 - [2025-04-26] Identify style issues and redesign the style.
+- [2025-05-03] Complete main features of Notesaw VScode preview extension.
 
 ### Reference
 
