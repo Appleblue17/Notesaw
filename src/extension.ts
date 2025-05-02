@@ -65,7 +65,6 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleCursorLineChange = (line: number) => {
     if (!panel) return;
-    console.log("Cursor line changed to: ", line);
     activeCursorLine = line;
     handlePreviewSync();
   };
@@ -77,7 +76,6 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleVisibleRangeChange = (range: vscode.Range) => {
     if (!panel) return;
-    console.log("Visible range changed to: ", range.start.line, range.end.line);
     visibleRange = range;
     handlePreviewSync();
   };

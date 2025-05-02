@@ -95,7 +95,6 @@ export default async function noteProcess(
     .use(rehypeStringify) // Stringify the final HTML
     .process(docWithMath);
 
-  // console.log(String(vfile));
   const htmlString = String(vfile);
 
   // Read and inject SVG sprite for icons
@@ -126,14 +125,9 @@ export async function noteProcessPure(
 
   // This is a mdast (Markdown AST) Root node
   const mdast = processor.parse(docWithMath) as MdastRoot;
-  // console.log("mdast");
-  // console.log(prettyPrint(mdast)); // Debug intermediate tree
 
   const totalLines = mdast.position!.end.line;
-  console.log("Total lines in the document: ", totalLines);
-  for (let i = 0; i <= totalLines; i++) {
-    map.push("");
-  }
+  for (let i = 0; i <= totalLines; i++) map.push("");
 
   // Process the markdown AST to get HTML AST
   const hast = (await processor.run(mdast)) as HastRoot;
@@ -147,11 +141,7 @@ export async function noteProcessPure(
   for (let i = map.length - 2; i >= 0; i--) {
     if (map[i] === "") mapNext[i] = mapNext[i + 1];
   }
-  // for (let i = 0; i < map.length; i++) {
-  //   console.log(i, map[i], mapLast[i], mapNext[i]);
-  // }
-  // console.log("hast");
-  // console.log(prettyPrint(hast)); // Debug intermediate tree
+
   // Generate the final HTML string
   const html = String(processor.stringify(hast));
 

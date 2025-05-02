@@ -32,13 +32,11 @@ function syncPreview(data) {
   if (!last) {
     // At the beginning, scroll to the top smoothly
     markdownBody.scrollIntoView({
-      behavior: "smooth",
       block: "start",
     });
   } else if (!next) {
     // At the end, scroll to the bottom smoothly
     markdownBody.scrollIntoView({
-      behavior: "smooth",
       block: "end",
     });
   } else if (last === next) {
@@ -57,12 +55,12 @@ function syncPreview(data) {
       const previewCursorPos =
         (blockHeight * (line - blockStart + 0.5)) / (blockEnd - blockStart + 1);
       // Calculate the scroll position
-      const scrollPosition = scrollTop + blockTop + previewCursorPos - editorCursorPos - 20;
+      const scrollPosition = scrollTop + blockTop + previewCursorPos - editorCursorPos;
 
       // Scroll to the calculated position smoothly
       window.scrollTo({
         top: scrollPosition,
-        behavior: "smooth",
+        // behavior: "smooth",
       });
     }
   } else {
@@ -85,12 +83,12 @@ function syncPreview(data) {
       const previewCursorPos =
         (blockGap * (line - blockLastEnd + 0.5)) / (blockNextStart - blockLastEnd + 1);
       // Calculate the scroll position
-      const scrollPosition = scrollTop + blockLastTop + previewCursorPos - editorCursorPos - 20;
+      const scrollPosition = scrollTop + blockLastTop + previewCursorPos - editorCursorPos;
 
       // Scroll to the calculated position smoothly
       window.scrollTo({
         top: scrollPosition,
-        behavior: "smooth",
+        // behavior: "smooth",
       });
     }
   }
