@@ -25,8 +25,8 @@ function syncPreview(data) {
   // Calculate relative cursor position within the visible editor range
   let percent = (line - rangeStart + 0.5) / (rangeEnd - rangeStart + 1);
   // Clamp percentage to reasonable bounds to avoid scrolling too far
-  if (percent < 0.2) percent = 0.2;
-  if (percent > 0.8) percent = 0.8;
+  if (percent < 0.1) percent = 0.1;
+  if (percent > 0.9) percent = 0.9;
   const editorCursorPos = viewportHeight * percent;
 
   if (!last) {

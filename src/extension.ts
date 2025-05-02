@@ -32,13 +32,16 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handlePreviewSync = () => {
     if (!panel || !visibleRange) return;
+    const rangeStart = visibleRange.start.line + 1,
+      rangeEnd = visibleRange.end.line + 1;
+    const line = Math.max(rangeStart, Math.min(rangeEnd, activeCursorLine + 1));
     panel.webview.postMessage({
       command: "syncPreview",
-      line: activeCursorLine + 1,
-      rangeStart: visibleRange!.start.line + 1,
-      rangeEnd: visibleRange!.end.line + 1,
-      last: mapLast[activeCursorLine + 1],
-      next: mapNext[activeCursorLine + 1],
+      line,
+      rangeStart,
+      rangeEnd,
+      last: mapLast[line],
+      next: mapNext[line],
     });
   };
 
