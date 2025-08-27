@@ -4,7 +4,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
-import { start } from "repl";
 
 /**
  * Plugin function for unified processor.

@@ -58,9 +58,13 @@ function syncPreview(data) {
       const scrollPosition = scrollTop + blockTop + previewCursorPos - editorCursorPos;
 
       // Scroll to the calculated position smoothly
+      // Calculate the scroll distance
+      const scrollDistance = Math.abs(scrollPosition - window.scrollY);
+
+      // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        // behavior: "smooth",
+        behavior: scrollDistance > 200 ? "smooth" : "auto",
       });
     }
   } else {
@@ -86,9 +90,13 @@ function syncPreview(data) {
       const scrollPosition = scrollTop + blockLastTop + previewCursorPos - editorCursorPos;
 
       // Scroll to the calculated position smoothly
+      // Calculate the scroll distance
+      const scrollDistance = Math.abs(scrollPosition - window.scrollY);
+
+      // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        // behavior: "smooth",
+        behavior: scrollDistance > 200 ? "smooth" : "auto",
       });
     }
   }
