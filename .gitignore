@@ -1,6 +1,9 @@
 out
-note_test
 node_modules
-.vscode-test/
 *.vsix
+
+// test
+note_test
+.vscode-test/
+src/main.ts
 output.html

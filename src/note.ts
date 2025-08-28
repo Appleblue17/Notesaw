@@ -54,17 +54,17 @@ export default async function noteProcess(
   const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
-    .use(() => (ast: NoteNode) => {
-      console.log("After remarkParse");
-      console.log(prettyPrint(ast)); // Debug intermediate tree
-    })
+    // .use(() => (ast: NoteNode) => {
+    //   console.log("After remarkParse");
+    //   console.log(prettyPrint(ast)); // Debug intermediate tree
+    // })
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(rehypeKatex) // Add KaTeX support
     .use(noteTransformPlugin, map) // Transform custom AST
-    .use(() => (ast: NoteNode) => {
-      console.log("After remarkRehype");
-      console.log(prettyPrint(ast)); // Debug after custom compiler
-    })
+    // .use(() => (ast: NoteNode) => {
+    //   console.log("After remarkRehype");
+    //   console.log(prettyPrint(ast)); // Debug after custom compiler
+    // })
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
       js: [morphdomUri, webviewScriptUri],

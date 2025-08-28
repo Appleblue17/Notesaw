@@ -69,14 +69,14 @@
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
     "@types/mocha": "^10.0.10",
-    "@types/node": "~20.17.32",
+    "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.99.1",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
+    "@types/vscode": "^1.103.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3"
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2"
   }
 }

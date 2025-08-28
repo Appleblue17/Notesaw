@@ -5,6 +5,16 @@ import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
 
+const abbrMap: Record<string, string> = {
+  thm: "theorem",
+  prop: "proposition",
+  cor: "corollary",
+  def: "definition",
+  warn: "warning",
+  vars: "variables",
+  var: "variables",
+};
+
 /**
  * Plugin function for unified processor.
  * Sets the parser to the custom parseNote function.
@@ -195,6 +205,7 @@ function parseNote(text: string): NoteNode {
    *
    * Syntax: `'+'? '@' label [?!*]? (' '+ defName ' '*)? '{'`
    * label: [a-z]+
+   * defName: [^\n]+ (\n' '*)?
    *
    * @param {number} beginIndex The starting index to parse the syntax.
    * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
@@ -209,11 +220,7 @@ function parseNote(text: string): NoteNode {
     const blockChildren: NoteNode[] = [];
 
     const ok = () => {
-      console.log("Block parsed successfully:", {
-        label,
-        style,
-        isLink,
-      });
+      if (label in abbrMap) label = abbrMap[label];
       return {
         endIndex: index,
         matchNode: {
@@ -247,9 +254,9 @@ function parseNote(text: string): NoteNode {
         isLink = true;
         index++;
       }
-      return parseDefIdentifier();
+      return parseBlockLabel();
     }
-    function parseDefIdentifier() {
+    function parseBlockLabel() {
       if (input[index] !== "@") return nok();
       index++;
 
@@ -260,10 +267,10 @@ function parseNote(text: string): NoteNode {
       }
 
       if (input[index] === " " || input[index] === "{" || input[index] === "\n")
-        return parseDefName();
-      else return parseDefStyle();
+        return parseBlockName();
+      else return parseBlockStyle();
     }
-    function parseDefStyle() {
+    function parseBlockStyle() {
       if (input[index] === "?") {
         style = "?";
         index++;
@@ -274,13 +281,15 @@ function parseNote(text: string): NoteNode {
         style = "*";
         index++;
       } else return nok();
-      return parseDefName();
+      return parseBlockName();
     }
-    function parseDefName() {
+    function parseBlockName() {
       if (input[index] !== "{" && input[index] !== " ") return nok();
       const start = index;
+      let crossRow = false;
       while (input[index] !== "{") {
-        if (input[index] === "\n") return nok();
+        if (crossRow && input[index] !== " ") return nok();
+        if (input[index] === "\n") crossRow = true;
         index++;
         if (index === input.length) return nok();
       }
@@ -288,7 +297,7 @@ function parseNote(text: string): NoteNode {
       if (parsedTitle) {
         parsedTitle.data = {
           hName: "div",
-          hProperties: { class: "block-title-mdast" },
+          hProperties: { class: "block-title-content" },
         };
         blockChildren.push(parsedTitle);
       }
@@ -297,27 +306,108 @@ function parseNote(text: string): NoteNode {
     }
   };
 
-  // const parseAxiomBlockBegin = blockBeginParserGenerator("axiom", "axiom");
-  // const parseTheoremBlockBegin = blockBeginParserGenerator("thm", "theorem");
-  // const parseProofBlockBegin = blockBeginParserGenerator("proof", "proof");
-  // const parseLemmaBlockBegin = blockBeginParserGenerator("lemma", "lemma");
-  // const parseLawBlockBegin = blockBeginParserGenerator("law", "law");
-  // const parsePropBlockBegin = blockBeginParserGenerator("prop", "proposition");
-  // const parseCorBlockBegin = blockBeginParserGenerator("cor", "corollary");
+  /**
+   * Parse the inline block syntax.
+   *
+   * Syntax: `'+'? '@' label [?!*]? ' ' content '\n'`
+   * label: [a-z]+
+   * content: [^\n]*
+   *
+   * @param {number} beginIndex The starting index to parse the syntax.
+   * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
+   */
+  const parseInlineBlock = (
+    beginIndex: number
+  ): null | { endIndex: number; matchNode: NoteNode } => {
+    let index = beginIndex,
+      label = "",
+      style: string | null = null,
+      isLink = false;
+    const blockChildren: NoteNode[] = [];
 
-  // const parseDefBlockBegin = blockBeginParserGenerator("def", "definition");
-  // const parseNoteBlockBegin = blockBeginParserGenerator("note", "note");
-  // const parseRemarkBlockBegin = blockBeginParserGenerator("remark", "remark");
-  // const parseExampleBlockBegin = blockBeginParserGenerator("example", "example");
-  // const parseProblemBlockBegin = blockBeginParserGenerator("problem", "problem");
-  // const parseSolutionBlockBegin = blockBeginParserGenerator("solution", "solution");
+    const ok = () => {
+      if (label in abbrMap) label = abbrMap[label];
+      return {
+        endIndex: index,
+        matchNode: {
+          type: "inline-block",
+          children: blockChildren,
+          position: {
+            start: getPosition(beginIndex),
+            end: getPosition(index),
+          },
+          data: {
+            hName: "div",
+            hProperties: {
+              class: label + "-inline-block-mdast" + (isLink ? " inline-block-link" : ""),
+            },
+          },
+          style: style,
+          isLink: isLink,
+        },
+      };
+    };
+    const nok = () => null;
+    return checkPosition();
 
-  // // special styling
-  // const parseWarnBlockBegin = blockBeginParserGenerator("warn", "warning");
-  // const parseVarsBlockBegin = blockBeginParserGenerator("vars", "variables");
-  // // const parseTodoBlockBegin = blockBeginParserGenerator("todo");
-  // // const parseQuoteBlockBegin = blockBeginParserGenerator("quote");
-  // const parseCustomBlockBegin = blockBeginParserGenerator("block", "custom");
+    // Check the current position against the expected indentation
+    function checkPosition() {
+      if (columns[index] !== indentLevel * 4 + 1) return nok();
+      return parseLinkSymbol();
+    }
+    function parseLinkSymbol() {
+      if (input[index] === "+") {
+        isLink = true;
+        index++;
+      }
+      return parseBlockLabel();
+    }
+    function parseBlockLabel() {
+      if (input[index] !== "@") return nok();
+      index++;
+
+      label = "";
+      while (/[a-z]/.test(input[index])) {
+        label += input[index];
+        index++;
+      }
+
+      if (input[index] === " " || input[index] === "{" || input[index] === "\n")
+        return parseBlockContent();
+      else return parseBlockStyle();
+    }
+    function parseBlockStyle() {
+      if (input[index] === "?") {
+        style = "?";
+        index++;
+      } else if (input[index] === "!") {
+        style = "!";
+        index++;
+      } else if (input[index] === "*") {
+        style = "*";
+        index++;
+      } else return nok();
+      return parseBlockContent();
+    }
+    function parseBlockContent() {
+      const start = index;
+
+      while (input[index] !== "\n") {
+        index++;
+        if (index === input.length) break;
+      }
+      const parsedContent = parseNativeMarkdown(input.slice(start, index), 0, start);
+      if (parsedContent) {
+        parsedContent.data = {
+          hName: "div",
+          hProperties: { class: "inline-block-content" },
+        };
+        blockChildren.push(parsedContent);
+      }
+      index++;
+      return ok();
+    }
+  };
 
   /* */
   const length = input.length;
@@ -349,11 +439,12 @@ function parseNote(text: string): NoteNode {
     const char = input[index];
 
     let match: null | { endIndex: number; matchNode: NoteNode } = null;
-    let update = (result: null | { endIndex: number; matchNode: NoteNode }) => {
+    const update = (result: null | { endIndex: number; matchNode: NoteNode }) => {
       if (!match && result) match = result;
     };
     if (char === "@" || char === "+") {
       update(parseBlockBegin(index));
+      update(parseInlineBlock(index));
     }
 
     if (match) {
@@ -383,6 +474,8 @@ function parseNote(text: string): NoteNode {
 
         parentNode.children.push(selfNode);
         blockStack.push({ node: selfNode, current: endIndex });
+      } else if (selfNode.type === "inline-block") {
+        parentNode.children.push(selfNode);
       }
 
       index = endIndex;

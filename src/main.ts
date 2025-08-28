@@ -1,7 +1,7 @@
 import noteProcess, { noteProcessPure } from "./note.ts";
 import fs from "fs/promises";
 
-const doc: string = await fs.readFile("./note_test/test.note", "utf-8");
+const doc: string = await fs.readFile("./note_test/mathnote.note", "utf-8");
 const res: string = await noteProcess(
   doc,
   "./assets/styles/note.css",
