@@ -32,35 +32,52 @@ function parseNote(text: string): NoteNode {
   const lines: number[] = [],
     columns: number[] = [];
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = i + 1 < text.length ? text[i + 1] : null;
-
-    if (char === "\n" || char === "\r") input += "\n";
-    else input += char;
+  const appendNormalChar = (char: string) => {
+    input += char;
 
     lines.push(line);
     columns.push(column);
 
-    // Handle newlines (CRLF, LF, CR)
-    if (char === "\r") {
-      if (nextChar === "\n") {
-        // CRLF (Windows)
+    // Normal character
+    column++;
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = i + 1 < text.length ? text[i + 1] : null;
+
+    if (char === "\n" || char === "\r") {
+      input += "\n";
+
+      lines.push(line);
+      columns.push(column);
+
+      // Handle newlines (CRLF, LF, CR)
+      if (char === "\r") {
+        if (nextChar === "\n") {
+          // CRLF (Windows)
+          line++;
+          column = 1;
+          i++; // Skip the LF
+        } else {
+          // CR alone (old Mac)
+          line++;
+          column = 1;
+        }
+      } else if (char === "\n") {
+        // LF (Unix)
         line++;
         column = 1;
-        i++; // Skip the LF
       } else {
-        // CR alone (old Mac)
-        line++;
-        column = 1;
+        // Normal character
+        column++;
       }
-    } else if (char === "\n") {
-      // LF (Unix)
-      line++;
-      column = 1;
+    } else if (char === "\t") {
+      for (let j = 0; j < 4; j++) {
+        appendNormalChar(" ");
+      }
     } else {
-      // Normal character
-      column++;
+      appendNormalChar(char);
     }
   }
 
@@ -160,207 +177,147 @@ function parseNote(text: string): NoteNode {
    * @param {NoteNode} node - The node to add HTML properties to
    * @param {string} className - The CSS class name to add to the node
    */
-  function addHproperties(node: NoteNode, className: string) {
-    if (!node.data) {
-      node.data = {
-        hName: "div",
-        hProperties: { class: className },
-      };
-    } else if (!node.data.hProperties || !node.data.hProperties.class) {
-      node.data.hProperties = { class: className };
-    } else {
-      node.data.hProperties.class += " " + className;
-    }
-  }
-  /**
-   * Generator function that creates parsers for different types of block syntax.
-   * Each generated parser handles the beginning of a specific block type.
-   *
-   * @param {string} abbr - The abbreviated syntax identifier (e.g., "def", "thm")
-   * @param {string} full - The full name of the block type (e.g., "definition", "theorem")
-   * @returns {Function} - A parser function for the specified block type
-   */
-  const blockBeginParserGenerator = (abbr: string, full: string) => {
-    /**
-     * Parse the block begin syntax.
-     *
-     * Syntax: `'+'? '@def' [?!*]? ( ' '+ defName ' '* )? '{'`
-     *
-     * @param {number} beginIndex The starting index to parse the syntax.
-     * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
-     */
-    const parseBlockBegin = (
-      beginIndex: number
-    ): null | { endIndex: number; matchNode: NoteNode } => {
-      let index = beginIndex,
-        style: string | null = null,
-        isLink = false;
-      const blockChildren: NoteNode[] = [];
-
-      const ok = () => {
-        return {
-          endIndex: index,
-          matchNode: {
-            type: abbr + "-block",
-            children: blockChildren,
-            position: {
-              start: getPosition(beginIndex),
-              end: getPosition(index),
-            },
-            data: {
-              hName: "div",
-              hProperties: {
-                class: full + "-block-mdast" + (isLink ? " block-link" : ""),
-              },
-            },
-            style: style,
-            isLink: isLink,
-            state: "body",
-          },
-        };
-      };
-      const nok = () => null;
-      return checkPosition();
-
-      function checkPosition() {
-        if (columns[index] !== indentLevel * 4 + 1) return nok();
-        return parseLinkSymbol();
-      }
-      function parseLinkSymbol() {
-        if (input[index] === "+") {
-          isLink = true;
-          index++;
-        }
-        return parseDefIdentifier();
-      }
-      function parseDefIdentifier() {
-        const str = "@" + abbr;
-        for (let i = 0; i < str.length; i++) {
-          if (input[index + i] !== str[i]) return nok();
-        }
-        index += str.length;
-        if (input[index] === " " || input[index] === "{" || input[index] === "\n")
-          return parseDefName();
-        else return parseDefStyle();
-      }
-      function parseDefStyle() {
-        if (input[index] === "?") {
-          style = "?";
-          index++;
-        } else if (input[index] === "!") {
-          style = "!";
-          index++;
-        } else if (input[index] === "*") {
-          style = "*";
-          index++;
-        } else return nok();
-        return parseDefName();
-      }
-      function parseDefName() {
-        if (input[index] !== "{" && input[index] !== " ") return nok();
-        const start = index;
-        while (input[index] !== "{") {
-          if (input[index] === "\n") return nok();
-          index++;
-          if (index === input.length) return nok();
-        }
-        const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0, start);
-        if (parsedTitle) {
-          parsedTitle.data = {
-            hName: "div",
-            hProperties: { class: "block-title-mdast" },
-          };
-          blockChildren.push(parsedTitle);
-        }
-        index++;
-        return ok();
-      }
-    };
-
-    return parseBlockBegin;
-  };
+  // function addHproperties(node: NoteNode, className: string) {
+  //   if (!node.data) {
+  //     node.data = {
+  //       hName: "div",
+  //       hProperties: { class: className },
+  //     };
+  //   } else if (!node.data.hProperties || !node.data.hProperties.class) {
+  //     node.data.hProperties = { class: className };
+  //   } else {
+  //     node.data.hProperties.class += " " + className;
+  //   }
+  // }
 
   /**
-   * Parses block separator syntax (horizontal rule with equal signs).
-   * Used to separate different sections within blocks.
+   * Parse the block begin syntax.
    *
-   * Syntax: `^( *)={3,}( *)$`
+   * Syntax: `'+'? '@' label [?!*]? (' '+ defName ' '*)? '{'`
+   * label: [a-z]+
    *
-   * @param {number} beginIndex - The starting index to parse the syntax
-   * @returns {null|Object} - null if match failed; object with endIndex and matchNode if succeeded
+   * @param {number} beginIndex The starting index to parse the syntax.
+   * @returns `null` if match failed; `{ endIndex, matchNode: {type, title, style, children} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
    */
-  const blockSeparatorParser = (
+  const parseBlockBegin = (
     beginIndex: number
   ): null | { endIndex: number; matchNode: NoteNode } => {
-    let index = beginIndex;
-    const ok = () => ({
-      endIndex: index,
-      matchNode: {
-        type: "block-separator",
-        children: [],
-      },
-    });
+    let index = beginIndex,
+      label = "",
+      style: string | null = null,
+      isLink = false;
+    const blockChildren: NoteNode[] = [];
+
+    const ok = () => {
+      console.log("Block parsed successfully:", {
+        label,
+        style,
+        isLink,
+      });
+      return {
+        endIndex: index,
+        matchNode: {
+          type: "block",
+          children: blockChildren,
+          position: {
+            start: getPosition(beginIndex),
+            end: getPosition(index),
+          },
+          data: {
+            hName: "div",
+            hProperties: {
+              class: label + "-block-mdast" + (isLink ? " block-link" : ""),
+            },
+          },
+          style: style,
+          isLink: isLink,
+        },
+      };
+    };
     const nok = () => null;
     return checkPosition();
 
-    /**
-     * We only match the equal sign at the begining of the line (after the indentation).
-     */
+    // Check the current position against the expected indentation
     function checkPosition() {
       if (columns[index] !== indentLevel * 4 + 1) return nok();
-      return parseBlockSeparator();
+      return parseLinkSymbol();
     }
-
-    function parseBlockSeparator() {
-      let equalCount = 0;
-      while (index < input.length && input[index] === "=") {
-        equalCount++;
+    function parseLinkSymbol() {
+      if (input[index] === "+") {
+        isLink = true;
         index++;
       }
-      if (equalCount < 3) return nok();
+      return parseDefIdentifier();
+    }
+    function parseDefIdentifier() {
+      if (input[index] !== "@") return nok();
+      index++;
 
-      while (index < input.length && input[index] !== "\n") {
-        if (input[index] !== " ") return nok();
+      label = "";
+      while (/[a-z]/.test(input[index])) {
+        label += input[index];
         index++;
       }
-      return checkPreviousChars();
-    }
 
-    /**
-     * Check that the previous characters after the last line brake are all spaces.
-     */
-    function checkPreviousChars() {
-      let forwardIndex = beginIndex - 1;
-      while (forwardIndex >= 0 && input[forwardIndex] !== "\n") {
-        if (input[forwardIndex] !== " ") return nok();
-        if (!forwardIndex) break;
-        forwardIndex--;
+      if (input[index] === " " || input[index] === "{" || input[index] === "\n")
+        return parseDefName();
+      else return parseDefStyle();
+    }
+    function parseDefStyle() {
+      if (input[index] === "?") {
+        style = "?";
+        index++;
+      } else if (input[index] === "!") {
+        style = "!";
+        index++;
+      } else if (input[index] === "*") {
+        style = "*";
+        index++;
+      } else return nok();
+      return parseDefName();
+    }
+    function parseDefName() {
+      if (input[index] !== "{" && input[index] !== " ") return nok();
+      const start = index;
+      while (input[index] !== "{") {
+        if (input[index] === "\n") return nok();
+        index++;
+        if (index === input.length) return nok();
       }
+      const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0, start);
+      if (parsedTitle) {
+        parsedTitle.data = {
+          hName: "div",
+          hProperties: { class: "block-title-mdast" },
+        };
+        blockChildren.push(parsedTitle);
+      }
+      index++;
       return ok();
     }
   };
 
-  const parseAxiomBlockBegin = blockBeginParserGenerator("axiom", "axiom");
-  const parseTheoremBlockBegin = blockBeginParserGenerator("thm", "theorem");
-  const parseProofBlockBegin = blockBeginParserGenerator("proof", "proof");
-  const parseLemmaBlockBegin = blockBeginParserGenerator("lemma", "lemma");
-  const parseLawBlockBegin = blockBeginParserGenerator("law", "law");
-  const parsePropBlockBegin = blockBeginParserGenerator("prop", "proposition");
-  const parseCorBlockBegin = blockBeginParserGenerator("cor", "corollary");
+  // const parseAxiomBlockBegin = blockBeginParserGenerator("axiom", "axiom");
+  // const parseTheoremBlockBegin = blockBeginParserGenerator("thm", "theorem");
+  // const parseProofBlockBegin = blockBeginParserGenerator("proof", "proof");
+  // const parseLemmaBlockBegin = blockBeginParserGenerator("lemma", "lemma");
+  // const parseLawBlockBegin = blockBeginParserGenerator("law", "law");
+  // const parsePropBlockBegin = blockBeginParserGenerator("prop", "proposition");
+  // const parseCorBlockBegin = blockBeginParserGenerator("cor", "corollary");
 
-  const parseDefBlockBegin = blockBeginParserGenerator("def", "definition");
-  const parseNoteBlockBegin = blockBeginParserGenerator("note", "note");
-  const parseRemarkBlockBegin = blockBeginParserGenerator("remark", "remark");
-  const parseExampleBlockBegin = blockBeginParserGenerator("example", "example");
-  const parseProblemBlockBegin = blockBeginParserGenerator("problem", "problem");
-  const parseSolutionBlockBegin = blockBeginParserGenerator("solution", "solution");
+  // const parseDefBlockBegin = blockBeginParserGenerator("def", "definition");
+  // const parseNoteBlockBegin = blockBeginParserGenerator("note", "note");
+  // const parseRemarkBlockBegin = blockBeginParserGenerator("remark", "remark");
+  // const parseExampleBlockBegin = blockBeginParserGenerator("example", "example");
+  // const parseProblemBlockBegin = blockBeginParserGenerator("problem", "problem");
+  // const parseSolutionBlockBegin = blockBeginParserGenerator("solution", "solution");
 
-  // special styling
-  const parseWarnBlockBegin = blockBeginParserGenerator("warn", "warning");
-  const parseVarsBlockBegin = blockBeginParserGenerator("vars", "variables");
-  // const parseTodoBlockBegin = blockBeginParserGenerator("todo");
-  // const parseQuoteBlockBegin = blockBeginParserGenerator("quote");
-  const parseCustomBlockBegin = blockBeginParserGenerator("block", "custom");
+  // // special styling
+  // const parseWarnBlockBegin = blockBeginParserGenerator("warn", "warning");
+  // const parseVarsBlockBegin = blockBeginParserGenerator("vars", "variables");
+  // // const parseTodoBlockBegin = blockBeginParserGenerator("todo");
+  // // const parseQuoteBlockBegin = blockBeginParserGenerator("quote");
+  // const parseCustomBlockBegin = blockBeginParserGenerator("block", "custom");
 
   /* */
   const length = input.length;
@@ -396,28 +353,7 @@ function parseNote(text: string): NoteNode {
       if (!match && result) match = result;
     };
     if (char === "@" || char === "+") {
-      update(parseDefBlockBegin(index));
-      update(parseAxiomBlockBegin(index));
-      update(parseTheoremBlockBegin(index));
-      update(parseLawBlockBegin(index));
-      update(parseProofBlockBegin(index));
-      update(parseLemmaBlockBegin(index));
-      update(parsePropBlockBegin(index));
-      update(parseCorBlockBegin(index));
-
-      update(parseNoteBlockBegin(index));
-      update(parseRemarkBlockBegin(index));
-      update(parseExampleBlockBegin(index));
-      update(parseProblemBlockBegin(index));
-      update(parseSolutionBlockBegin(index));
-
-      update(parseWarnBlockBegin(index));
-      update(parseVarsBlockBegin(index));
-      // update(parseTodoBlockBegin(index));
-      // update(parseQuoteBlockBegin(index));
-      update(parseCustomBlockBegin(index));
-    } else if (char === "=") {
-      update(blockSeparatorParser(index));
+      update(parseBlockBegin(index));
     }
 
     if (match) {
@@ -438,27 +374,15 @@ function parseNote(text: string): NoteNode {
         indentLevel * 4,
         last
       );
-      if (parentNode.type === "root") {
+      if (parentNode.type === "root" || parentNode.type === "block") {
         if (ast) parentNode.children.push(ast);
-      } else if (parentNode.type.endsWith("-block")) {
-        if (ast) {
-          addHproperties(ast, "block-" + parentNode.state + "-mdast");
-          parentNode.children.push(ast);
-        }
       }
 
-      if (selfNode.type.endsWith("-block")) {
+      if (selfNode.type === "block") {
         indentLevel++;
 
-        if (parentNode.type.endsWith("-block")) {
-          addHproperties(selfNode, "block-" + parentNode.state + "-mdast");
-        }
         parentNode.children.push(selfNode);
         blockStack.push({ node: selfNode, current: endIndex });
-      } else if (selfNode.type === "block-separator") {
-        if (parentNode.state === "body") {
-          parentNode.state = "extend";
-        }
       }
 
       index = endIndex;
@@ -470,11 +394,8 @@ function parseNote(text: string): NoteNode {
 
           if (selfNode) {
             const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
-            if (selfNode.type.endsWith("-block")) {
-              if (ast) {
-                addHproperties(ast, "block-" + selfNode.state + "-mdast");
-                selfNode.children.push(ast);
-              }
+            if (selfNode.type === "block") {
+              if (ast) selfNode.children.push(ast);
               indentLevel--;
             }
 

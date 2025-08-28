@@ -1,9 +1,5 @@
 [![Super-Linter](https://github.com/Appleblue17/Notesaw/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
-### Todo
-
-Next version: 1.0.0
-
 #### Notesaw Renderer
 
 - [x] Add support for basic markdown syntax
@@ -53,8 +49,8 @@ Next version: 1.0.0
 - [2025-03] Confirm development path: build on top of [unified](https://github.com/unifiedjs/unified) framework.
 - [2025-03] Start developing core features.
 - [2025-04-18] Complete the first version of the core features.
-- [2025-04-26] Identify style issues and redesign the style.
 - [2025-05-03] Complete main features of Notesaw VScode preview extension.
+- [2025-08-27] Redesign the style and simplify the syntax.
 
 ### Reference
 

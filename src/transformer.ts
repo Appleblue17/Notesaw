@@ -4,8 +4,19 @@
  */
 import { visit } from "unist-util-visit";
 
-import type { NoteNode } from "./index.ts";
-import type { Comment, Element, ElementContent, Text } from "hast";
+import type { Element } from "hast";
+
+/**
+ * Helper function to generate a hash from a string.
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
 
 /**
  * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
@@ -30,6 +41,25 @@ function updatePosition(node: Element) {
   }
 }
 
+const iconMap: Record<string, string> = {
+  axiom: "check-circle",
+  theorem: "book",
+  proof: "edit",
+  lemma: "layers",
+  law: "tool",
+  proposition: "file-text",
+  corollary: "corner-right-down",
+  def: "compass",
+  definition: "compass",
+  note: "bookmark",
+  remark: "message-circle",
+  example: "list",
+  problem: "help-circle",
+  solution: "check",
+  warning: "alert-triangle",
+  variables: "list",
+};
+
 /**
  * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
  * @param {Element} tree - The syntax tree to transform
@@ -43,70 +73,17 @@ function transformNote(tree: Element, map: String[]) {
     for (const className of classList || []) {
       if (className.endsWith("-block-mdast")) {
         // Extract block type from class name (removing "-block-mdast" suffix)
-        const blockType = className.slice(0, -12);
-        const blockTypeCap = blockType.charAt(0).toUpperCase() + blockType.slice(1);
-        let icon = "";
+        const blockLabel = className.slice(0, -12);
+        const blockLabelCap = blockLabel.charAt(0).toUpperCase() + blockLabel.slice(1);
 
-        // Assign appropriate icons based on block type
-        switch (blockType) {
-          // Academic block types
-          case "axiom":
-            icon = "check-circle"; // Represents a fundamental truth
-            break;
-          case "theorem":
-            icon = "book"; // Represents a formal statement
-            break;
-          case "proof":
-            icon = "edit"; // Represents a logical argument
-            break;
-          case "lemma":
-            icon = "layers"; // Represents a supporting proposition
-            break;
-          case "law":
-            icon = "tool"; // Represents a rule or principle
-            break;
-          case "proposition":
-            icon = "file-text"; // Represents a proposed statement
-            break;
-          case "corollary":
-            icon = "corner-right-down"; // Represents a result derived from a theorem
-            break;
-
-          // Informational block types
-          case "definition":
-            icon = "compass"; // Represents a definition
-            break;
-          case "note":
-            icon = "bookmark"; // Represents a note or annotation
-            break;
-          case "remark":
-            icon = "message-circle"; // Represents a comment or remark
-            break;
-          case "example":
-            icon = "list"; // Represents an example or instance
-            break;
-          case "problem":
-            icon = "help-circle"; // Represents a problem
-            break;
-          case "solution":
-            icon = "check"; // Represents a solution or answer
-            break;
-
-          // Special block types
-          case "warning":
-            icon = "alert-triangle"; // Represents a warning or caution
-            break;
-          case "variables":
-            icon = "list"; // Represents adjustable variables
-            break;
-          case "custom":
-            icon = "settings"; // Represents a custom or configurable block
-            break;
-        }
+        // Get HSL color based on label hash
+        const labelHash = hashString(blockLabel);
+        const hslColor = `hsl(${labelHash % 360}, 100%, 50%)`;
 
         // Apply block container class
         node.properties = {
-          class: "block-container " + blockType + "-block-container",
+          class: "block-container " + blockLabel + "-block-container",
+          style: `border-left-color: ${hslColor};`,
         };
 
         // Create container elements for different parts of the block
@@ -128,92 +105,59 @@ function transformNote(tree: Element, map: String[]) {
           children: [] as Element[],
         };
 
-        let extendNode: Element = {
+        // Assign appropriate icons based on block id
+        const icon = iconMap[blockLabel] || "chevron-right";
+        const iconNode: Element = {
           type: "element",
-          tagName: "div",
+          tagName: "svg",
           properties: {
-            class: "block-extend",
+            class: "block-icon",
+            style: `stroke: ${hslColor};`,
           },
-          children: [] as Element[],
+          children: [
+            {
+              type: "element",
+              tagName: "use",
+              properties: {
+                href: "#" + icon,
+              },
+              children: [],
+            },
+          ],
         };
+        const labelNode: Element = {
+          type: "element",
+          tagName: "span",
+          properties: {
+            class: "block-label",
+            style: `color: ${hslColor};`,
+          },
+          children: [
+            {
+              type: "text",
+              value: blockLabelCap,
+            },
+          ],
+        };
+        titleNode.children.push(iconNode);
+        titleNode.children.push(labelNode);
 
-        // Distribute child elements to appropriate containers
-        // based on their class names
+        // Distribute child elements to appropriate containers based on their class names
         for (const child of node.children as Element[]) {
           const childClass = child.properties?.["class"]?.toString();
           if (childClass?.includes("block-title-mdast")) {
             titleNode.children.push(child);
-          } else if (childClass?.includes("block-body-mdast")) {
+          } else {
             bodyNode.children.push(child);
-          } else if (childClass?.includes("block-extend-mdast")) {
-            extendNode.children.push(child);
           }
         }
         updatePosition(titleNode);
         updatePosition(bodyNode);
-        updatePosition(extendNode);
 
         // Construct the final block structure with icon and label
-        node.children = [
-          // Icon container
-          {
-            type: "element",
-            tagName: "div",
-            properties: {
-              class: "block-icon-container",
-            },
-            children: [
-              {
-                type: "element",
-                tagName: "svg",
-                properties: {
-                  class: "block-icon",
-                },
-                children: [
-                  {
-                    type: "element",
-                    tagName: "use",
-                    properties: {
-                      href: "#" + icon,
-                    },
-                    children: [],
-                  },
-                ],
-              },
-            ],
-          },
-          // Block type label
-          {
-            type: "element",
-            tagName: "div",
-            properties: {
-              class: "block-tag-container",
-            },
-            children: [
-              {
-                type: "text",
-                value: blockTypeCap,
-              },
-            ],
-          },
-        ];
+        node.children = [titleNode, bodyNode];
 
-        // Add content blocks if they have children
-        const blockNode: Element = {
-          type: "element",
-          tagName: "div",
-          properties: {
-            class: "block-card",
-          },
-          children: [] as Element[],
-        };
-        if (titleNode.children.length > 0) blockNode.children.push(titleNode);
-        blockNode.children.push(bodyNode);
-        node.children.push(blockNode);
-
-        if (extendNode.children.length > 0) node.children.push(extendNode);
-
-        updatePosition(blockNode);
+        updatePosition(node);
 
         // Commented out code for block-link functionality
         // if (classList?.includes("block-link")) {

@@ -9,33 +9,43 @@
   padding: 2rem 2rem;
 }
 
-/* block */
+/* block title*/
 .block-container {
-  position: relative;
-  padding: 1rem 0;
-  margin-left: 0.5rem;
+  border-left: 2px solid transparent;
+  padding: 0.2rem 0 0.2rem 1rem;
+  margin-bottom: 0.8rem;
 }
-.block-card {
-  position: relative;
-  border: 2px solid black;
-  border-radius: 15px;
-  padding-top: 0.4rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-.block-card > .block-title > div p {
+
+.block-container > .block-title > div p {
   margin: 0;
 }
-.block-card > .block-title {
-  padding: 0rem 1rem 0.3rem;
-  font-size: 1.2rem;
-  font-weight: bold;
-  border-bottom: 2px solid #9f9f9f8e;
-}
-.block-card > .block-body {
+
+.block-container > .block-title > .block-label {
+  margin-left: 6px;
   font-size: 1rem;
-  padding: 0.5rem 2rem 1px;
-  border-bottom: 1px solid gray;
+}
+
+.block-container > .block-title > .block-title-mdast {
+  margin-left: 12px;
+  font-size: 1.1rem;
+}
+
+.block-container > .block-title {
+  display: flex;
+  align-items: center;
+}
+
+.block-container > .block-title > .block-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: flex;
+  align-items: center;
+  stroke-width: 2;
+}
+
+/* block body*/
+.block-container > .block-body {
+  padding-top: 0.5rem;
 }
 
 .block-extend::before {
@@ -72,196 +82,4 @@
   border-right: 2px solid #9f9f9f;
   border-bottom: 2px solid #9f9f9f;
   /* background-color: #9f9f9f8e; */
-}
-
-/* block-icon */
-.block-icon-container {
-  position: absolute;
-  top: 0px;
-  left: -16px;
-  z-index: 2;
-  background-color: white;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 2px solid #000;
-  border-radius: 50%;
-  line-height: 24px;
-  margin-right: 10px;
-}
-.block-icon {
-  width: 20px;
-  height: 20px;
-  stroke: #ffffffe0;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* block-tag */
-.block-tag-container {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  z-index: 1;
-  background-color: white;
-  color: #ffffffe0;
-  font-size: 15px;
-  font-weight: bold;
-
-  height: var(--tag-height);
-  line-height: var(--tag-height);
-  border: 2px solid #000;
-  border-radius: calc(var(--tag-height) / 2);
-  padding: 0 1rem;
-}
-
-/* block-link */
-
-/* Definition block (existing code) */
-.definition-block-container > .block-card {
-  background-color: #fdeddb;
-}
-.definition-block-container > .block-icon-container,
-.definition-block-container > .block-tag-container {
-  background-color: #ea9834;
-}
-
-/* Axiom block */
-.axiom-block-container > .block-card {
-  background-color: #e5f8f3;
-}
-.axiom-block-container > .block-icon-container,
-.axiom-block-container > .block-tag-container {
-  background-color: #007a5e;
-}
-
-/* Proposition block */
-.proposition-block-container > .block-card {
-  background-color: #f2f7e2;
-}
-.proposition-block-container > .block-icon-container,
-.proposition-block-container > .block-tag-container {
-  background-color: #6b8e00;
-}
-
-/* Theorem block */
-.theorem-block-container > .block-card {
-  background-color: #eef8e2;
-}
-.theorem-block-container > .block-icon-container,
-.theorem-block-container > .block-tag-container {
-  background-color: #3b7300;
-}
-
-/* Lemma block */
-.lemma-block-container > .block-card {
-  background-color: #f0fae6;
-}
-.lemma-block-container > .block-icon-container,
-.lemma-block-container > .block-tag-container {
-  background-color: #4f9e00;
-}
-
-/* Law block */
-.law-block-container > .block-card {
-  background-color: #f5f7e2;
-}
-.law-block-container > .block-icon-container,
-.law-block-container > .block-tag-container {
-  background-color: #8c9e00;
-}
-
-/* Proof block */
-.proof-block-container > .block-card {
-  background-color: #e6f7ee;
-}
-.proof-block-container > .block-icon-container,
-.proof-block-container > .block-tag-container {
-  background-color: #008a33;
-}
-
-/* Corollary block */
-.corollary-block-container > .block-card {
-  background-color: #e8f5f0;
-}
-.corollary-block-container > .block-icon-container,
-.corollary-block-container > .block-tag-container {
-  background-color: #005f33;
-}
-
-/* Note block */
-.note-block-container > .block-card {
-  background-color: #eaf5fc;
-}
-.note-block-container > .block-icon-container,
-.note-block-container > .block-tag-container {
-  background-color: #4fa8e6;
-}
-
-/* Remark block */
-.remark-block-container > .block-card {
-  background-color: #e7eef8;
-}
-.remark-block-container > .block-icon-container,
-.remark-block-container > .block-tag-container {
-  background-color: #003f8c;
-}
-
-/* Example block */
-.example-block-container > .block-card {
-  background-color: #fcf5e5;
-}
-.example-block-container > .block-icon-container,
-.example-block-container > .block-tag-container {
-  background-color: #d4a100;
-}
-
-/* Problem block */
-.problem-block-container > .block-card {
-  background-color: #faf1e5;
-}
-.problem-block-container > .block-icon-container,
-.problem-block-container > .block-tag-container {
-  background-color: #cc8400;
-}
-
-/* Solution block */
-.solution-block-container > .block-card {
-  background-color: #f8eee4;
-}
-.solution-block-container > .block-icon-container,
-.solution-block-container > .block-tag-container {
-  background-color: #b37400;
-}
-
-/* Warning block */
-.warning-block-container > .block-card {
-  background-color: #fbeaea;
-}
-.warning-block-container > .block-icon-container,
-.warning-block-container > .block-tag-container {
-  background-color: #cc0000;
-}
-
-/* Variables block */
-.variables-block-container > .block-card {
-  background-color: #f0e8f7;
-}
-.variables-block-container > .block-icon-container,
-.variables-block-container > .block-tag-container {
-  background-color: #2e004f;
-}
-
-/* Custom block */
-.custom-block-container > .block-card {
-  background-color: #f2f2f2;
-}
-.custom-block-container > .block-icon-container,
-.custom-block-container > .block-tag-container {
-  background-color: #6a6a6a;
 }
