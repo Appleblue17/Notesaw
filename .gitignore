@@ -1,6 +1,7 @@
 out
 node_modules
 *.vsix
+.vscode
 
 // test
 note_test

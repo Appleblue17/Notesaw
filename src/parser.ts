@@ -79,7 +79,7 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
     }
 
     const boxRegex = /\@\[([^\@]*)\]/;
-    while ((match = boxRegex.exec(lines[i])) !== null) {
+    if ((match = boxRegex.exec(lines[i])) !== null) {
       const [fullMatch, content] = match;
       lines[i] = lines[i].replace(fullMatch, `<box data="${content}" />`);
     }
@@ -252,10 +252,11 @@ function parseNote(text: string): NoteNode {
       index++;
 
       label = "";
-      while (/[a-z]/.test(input[index])) {
+      while (index < input.length && /[a-z]/.test(input[index])) {
         label += input[index];
         index++;
       }
+      if (index === input.length) return nok();
 
       if (input[index] === " " || input[index] === "{" || input[index] === "\n")
         return parseBlockName();
@@ -278,12 +279,13 @@ function parseNote(text: string): NoteNode {
       if (input[index] !== "{" && input[index] !== " ") return nok();
       const start = index;
       let crossRow = false;
-      while (input[index] !== "{") {
+      while (index < input.length && input[index] !== "{") {
         if (crossRow && input[index] !== " ") return nok();
         if (input[index] === "\n") crossRow = true;
         index++;
-        if (index === input.length) return nok();
       }
+      if (index === input.length) return nok();
+
       if (index + 1 !== input.length && input[index + 1] !== "\n") return nok(); // The '{' must be at the end of the line
 
       const parsedTitle = parseNativeMarkdown(input.slice(start, index), 0, start);
@@ -360,12 +362,15 @@ function parseNote(text: string): NoteNode {
       index++;
 
       label = "";
-      while (/[a-z]/.test(input[index])) {
+      while (index < input.length && /[a-z]/.test(input[index])) {
         label += input[index];
         index++;
       }
 
-      if (input[index] === " " || input[index] === "{" || input[index] === "\n")
+      if (
+        index < input.length &&
+        (input[index] === " " || input[index] === "{" || input[index] === "\n")
+      )
         return parseBlockContent();
       else return parseBlockStyle();
     }
@@ -385,9 +390,8 @@ function parseNote(text: string): NoteNode {
     function parseBlockContent() {
       const start = index;
 
-      while (input[index] !== "\n") {
+      while (index < input.length && input[index] !== "\n") {
         index++;
-        if (index === input.length) break;
       }
       const parsedContent = parseNativeMarkdown(input.slice(start, index), 0, start);
       if (parsedContent) {
@@ -443,13 +447,7 @@ function parseNote(text: string): NoteNode {
     if (match) {
       const { endIndex, matchNode: selfNode }: { endIndex: number; matchNode: NoteNode } = match;
 
-      if (!blockStack.length) {
-        throw new Error("Curly braces are not matched.");
-      }
       const lastBlock = blockStack[blockStack.length - 1];
-      if (!lastBlock.node) {
-        throw new Error("Curly braces are not matched.");
-      }
       const parentNode = lastBlock.node;
       const last = lastBlock.current;
 
@@ -493,13 +491,11 @@ function parseNote(text: string): NoteNode {
       index++;
     }
   }
-  if (blockStack.length > 1) {
-    throw new Error("Curly braces are not matched.");
-  }
-  const { node, current: last } = blockStack[0];
+
+  const { node, current: last } = blockStack[blockStack.length - 1];
   const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4, last);
   if (ast) node.children.push(ast);
-  blockStack[0].node.position!.end = getPosition(length);
+  blockStack[blockStack.length - 1].node.position!.end = getPosition(length);
 
   return blockStack[0].node;
 }

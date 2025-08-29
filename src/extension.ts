@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "note.css")
         );
         const ghmCssUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "github-markdown-light.css")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "github-markdown.css")
         );
         const katexCssUri = panel.webview.asWebviewUri(
           vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "katex.min.css")
