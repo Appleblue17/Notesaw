@@ -35,6 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
     const rangeStart = visibleRange.start.line + 1,
       rangeEnd = visibleRange.end.line + 1;
     const line = Math.max(rangeStart, Math.min(rangeEnd, activeCursorLine + 1));
+    console.log("Syncing preview:", { line, last: mapLast[line], next: mapNext[line] });
     panel.webview.postMessage({
       command: "syncPreview",
       line,
@@ -51,13 +52,18 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleDocChange = async (document: vscode.TextDocument) => {
     if (!panel) return;
+    console.time("noteProcessPure");
     const res = await noteProcessPure(document.getText());
+    console.timeEnd("noteProcessPure");
     mapLast = res.mapLast;
     mapNext = res.mapNext;
+
+    console.time("updateDoc");
     panel.webview.postMessage({
       command: "updateHtml",
       html: res.html,
     });
+    console.timeEnd("updateDoc");
     handlePreviewSync();
   };
 
@@ -88,8 +94,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("notesaw.showPreview", async () => {
       // The main command handler that creates and manages the preview panel
       // This is triggered when the user runs the "Notesaw: Show Preview" command
-
-      console.log("Notesaw extension is now active!");
 
       const editor = vscode.window.activeTextEditor;
       if (editor) {

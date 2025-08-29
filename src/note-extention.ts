@@ -87,6 +87,8 @@ export async function noteProcessPure(
 ): Promise<{ html: String; mapLast: String[]; mapNext: String[] }> {
   const map: String[] = [];
 
+  console.time("process");
+
   // Create a single unified processor with all plugins
   const processor = unified()
     .use(noteParsePlugin)
@@ -96,14 +98,16 @@ export async function noteProcessPure(
     .use(noteTransformPlugin, map)
     .use(rehypeStringify);
 
-  // This is a mdast (Markdown AST) Root node
+  console.time("parsing");
   const mdast = processor.parse(doc) as MdastRoot;
 
   const totalLines = mdast.position!.end.line;
   for (let i = 0; i <= totalLines; i++) map.push("");
 
-  // Process the markdown AST to get HTML AST
   const hast = (await processor.run(mdast)) as HastRoot;
+  console.timeEnd("parsing");
+
+  console.time("lineMapping");
 
   const mapLast = [...map],
     mapNext = [...map];
@@ -117,5 +121,8 @@ export async function noteProcessPure(
   // Generate the final HTML string
   const html = String(processor.stringify(hast));
 
+  console.timeEnd("lineMapping");
+
+  console.timeEnd("process");
   return { html, mapLast, mapNext };
 }

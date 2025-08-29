@@ -85,23 +85,30 @@ function transformNote(tree: Element, map: String[]) {
 
   let count = 0;
   visit(tree, "element", (node: Element) => {
-    if (node.position) {
-      const start = node.position.start,
-        end = node.position.end;
-      const id = "n-" + start.line + "-" + end.line + "-" + count;
-      count++;
-      // Use data property to store custom attributes
-      node.properties.id = id;
+    if (!node.position) return;
+    const start = node.position.start,
+      end = node.position.end;
+    const id = "n-" + start.line + "-" + end.line + "-" + count;
+    count++;
+    // Use data property to store custom attributes
+    node.properties = {
+      ...node.properties,
+      id,
+    };
 
-      let currentLine = start.line;
-      for (let child of node.children) {
-        if (child.type === "text" || !child.position) continue;
-        const childStartLine = child.position.start.line;
+    let currentLine = start.line;
+    let firstChild = true;
+    for (let child of node.children) {
+      if (child.type === "text" || !child.position) continue;
+      const childStartLine = child.position.start.line;
+
+      if (!firstChild) {
         for (let i = currentLine; i < childStartLine; i++) map[i] = id;
-        currentLine = child.position.end.line + 1;
+        firstChild = false;
       }
-      for (let i = currentLine; i <= end.line; i++) map[i] = id;
+      currentLine = child.position.end.line + 1;
     }
+    for (let i = currentLine; i <= end.line; i++) map[i] = id;
   });
 }
 

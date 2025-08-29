@@ -64,7 +64,7 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: scrollDistance > 200 ? "smooth" : "auto",
+        behavior: "auto",
       });
     }
   } else {
@@ -96,7 +96,7 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: scrollDistance > 200 ? "smooth" : "auto",
+        behavior: "auto",
       });
     }
   }

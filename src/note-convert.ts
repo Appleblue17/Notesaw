@@ -15,6 +15,7 @@ import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
 import { noteTransformPlugin } from "./transformer.ts";
 import rehypeFormat from "rehype-format";
 import rehypeDocument from "rehype-document";
+import { NoteNode } from "./index.ts";
 
 /**
  * Processes a note document and converts it to HTML

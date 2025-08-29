@@ -65,10 +65,18 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
       trimNum++;
     lines[i] = lines[i].slice(trimNum);
 
+    let boxNum = 0;
+    let match;
+    const boxRegex = /\@\[([^\@]*)\]/;
+    if ((match = boxRegex.exec(lines[i])) !== null) {
+      const [fullMatch, content] = match;
+      lines[i] = lines[i].replace(fullMatch, `<box data="${content}"/>`);
+      boxNum++;
+    }
+
     trimNums.push(trimNums[trimNums.length - 1] + trimNum);
     mathNums.push(mathNums[mathNums.length - 1]);
 
-    let match;
     // Match `\$\$([^$]*)\$\$` and replace with `$$\n$1\n$$\n`
     const mathRegex = /^\s*\$\$([^$\n]*)\$\$/;
     while ((match = mathRegex.exec(lines[i])) !== null) {
@@ -76,12 +84,6 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
       mathNums.push(mathNums[mathNums.length - 1]);
       mathNums.push(mathNums[mathNums.length - 1] + 1);
       mathNums.push(mathNums[mathNums.length - 1]);
-    }
-
-    const boxRegex = /\@\[([^\@]*)\]/;
-    if ((match = boxRegex.exec(lines[i])) !== null) {
-      const [fullMatch, content] = match;
-      lines[i] = lines[i].replace(fullMatch, `<box data="${content}" />`);
     }
   }
   const trimedLines = lines.join("\n");
@@ -94,6 +96,7 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
 
   if (!ast.children.length) return null;
 
+  let boxNum = 0;
   /**
    * Recursively updates position information for all nodes in the AST.
    * Corrects offsets by accounting for the leading spaces that were trimmed
@@ -107,8 +110,10 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
       const endLine = node.position.end.line - mathNums[node.position.end.line] * 3;
       const startOffset = node.position.start.offset! - mathNums[node.position.start.line - 1] * 3;
       const endOffset = node.position.end.offset! - mathNums[node.position.end.line] * 3;
-      const startPos = startOffset + offset + trimNums[startLine];
-      const endPos = endOffset + offset + trimNums[endLine];
+      const startPos = startOffset + offset + trimNums[startLine] - boxNum * 11;
+      let endPos = endOffset + offset + trimNums[endLine] - boxNum * 11;
+
+      if (node.type === "html") boxNum++, (endPos += 3);
 
       node.position.start = getPosition(startPos);
       node.position.end = getPosition(endPos);
@@ -505,7 +510,7 @@ export function noteBoxParsePlugin() {
     /* Handle box syntax */
     visit(tree, "html", (node: any) => {
       // value is like <box data="{content}" />
-      const content = node.value.match(/^<box data="([^"]+)" \/>$/)?.[1];
+      const content = node.value.match(/^<box data="([^"]+)"\/>$/)?.[1];
 
       const ast = parseNativeMarkdown(content, 0, node.position.start.offset!);
 
