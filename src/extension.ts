@@ -10,7 +10,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import noteProcess, { noteProcessPure } from "./note.ts";
+import noteProcess, { noteProcessPure } from "./note-extention.ts";
 
 /**
  * Activates the Notesaw extension
@@ -88,6 +88,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("notesaw.showPreview", async () => {
       // The main command handler that creates and manages the preview panel
       // This is triggered when the user runs the "Notesaw: Show Preview" command
+
+      console.log("Notesaw extension is now active!");
+
       const editor = vscode.window.activeTextEditor;
       if (editor) {
         // Verify the document is a Notesaw file

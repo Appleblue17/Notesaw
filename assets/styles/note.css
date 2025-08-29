@@ -13,8 +13,12 @@
 .block-container,
 .inline-block-container {
   border-left: 2px solid transparent;
-  padding: 0.2rem 0 0.2rem 1rem;
+  padding: 0.2rem 0 0.2rem 0.8rem;
   margin-bottom: 0.8rem;
+}
+
+.inline-block-container {
+  padding-left: 0.5rem;
 }
 
 .block-container > .block-title > div p {
@@ -45,6 +49,7 @@
   align-items: center;
   stroke-width: 2;
   margin-right: 0.4rem;
+  margin-top: 0.2rem;
 }
 
 /* block body */
@@ -60,4 +65,38 @@
 .inline-block-container > .inline-block-content p {
   margin: 0;
   padding: 0;
+}
+
+/* box */
+
+.box {
+  position: relative;
+  display: inline-block;
+  padding: 0 8px;
+  margin: 0px 4px 6px;
+  background-color: #27272a;
+}
+
+.box::before {
+  content: "";
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 8px;
+  height: 80%;
+  display: block;
+  border-left: 1.5px solid whitesmoke;
+  border-top: 1.5px solid whitesmoke;
+}
+
+.box::after {
+  content: "";
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 8px;
+  height: 80%;
+  display: block;
+  border-right: 1.5px solid whitesmoke;
+  border-bottom: 1.5px solid whitesmoke;
 }

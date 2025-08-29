@@ -4,20 +4,17 @@
  * This is a wrapper of the whole Notesaw pipeline. It processes a note document, converting it to HTML,
  */
 
-import type { Root as HastRoot } from "hast";
-import type { Root as MdastRoot } from "mdast";
-import { NoteNode } from "./index.ts";
 import { unified } from "unified";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
-import rehypeDocument from "rehype-document";
-import rehypeFormat from "rehype-format";
 import rehypeStringify from "rehype-stringify";
 
 import fs from "fs";
 import prettyPrint from "./utils/prettyprint.ts";
-import noteParsePlugin from "./parser.ts";
+import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
 import { noteTransformPlugin } from "./transformer.ts";
+import rehypeFormat from "rehype-format";
+import rehypeDocument from "rehype-document";
 
 /**
  * Processes a note document and converts it to HTML
@@ -41,19 +38,17 @@ import { noteTransformPlugin } from "./transformer.ts";
  * @param cspSource - Content Security Policy source
  * @returns Promise resolving to the final HTML document
  */
-export default async function noteProcess(
+export default async function noteProcessConvert(
   doc: string,
   noteCssUri: string,
   ghmCssUri: string,
   katexCssUri: string,
-  featherSvgPath: string,
-  morphdomUri: string,
-  webviewScriptUri: string,
-  cspSource: string
+  featherSvgPath: string
 ): Promise<string> {
   const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
+    .use(noteBoxParsePlugin) // Custom parser processes box syntax
     // .use(() => (ast: NoteNode) => {
     //   console.log("After remarkParse");
     //   console.log(prettyPrint(ast)); // Debug intermediate tree
@@ -67,14 +62,8 @@ export default async function noteProcess(
     // })
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
-      js: [morphdomUri, webviewScriptUri],
-      // meta: [
-      //   {
-      //     "http-equiv": "Content-Security-Policy",
-      //     content: `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; script-src ${cspSource}`,
-      //   },
-      // ],
     })
+    .use(rehypeFormat)
     .use(rehypeStringify) // Stringify the final HTML
     .process(doc);
 
@@ -89,42 +78,4 @@ export default async function noteProcess(
 
   const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
   return finalHtml;
-}
-
-export async function noteProcessPure(
-  doc: string
-): Promise<{ html: String; mapLast: String[]; mapNext: String[] }> {
-  const map: String[] = [];
-
-  // Create a single unified processor with all plugins
-  const processor = unified()
-    .use(noteParsePlugin)
-    .use(remarkRehype)
-    .use(rehypeKatex)
-    .use(rehypeFormat)
-    .use(noteTransformPlugin, map)
-    .use(rehypeStringify);
-
-  // This is a mdast (Markdown AST) Root node
-  const mdast = processor.parse(doc) as MdastRoot;
-
-  const totalLines = mdast.position!.end.line;
-  for (let i = 0; i <= totalLines; i++) map.push("");
-
-  // Process the markdown AST to get HTML AST
-  const hast = (await processor.run(mdast)) as HastRoot;
-
-  const mapLast = [...map],
-    mapNext = [...map];
-  for (let i = 1; i < map.length; i++) {
-    if (mapLast[i] === "") mapLast[i] = mapLast[i - 1];
-  }
-  for (let i = map.length - 2; i >= 0; i--) {
-    if (map[i] === "") mapNext[i] = mapNext[i + 1];
-  }
-
-  // Generate the final HTML string
-  const html = String(processor.stringify(hast));
-
-  return { html, mapLast, mapNext };
 }

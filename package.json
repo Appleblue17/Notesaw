@@ -50,7 +50,7 @@
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "process": "tsc -p ./ && node ./out/main.js"
+    "convert": "tsc -p ./ && node ./out/convert.js"
   },
   "dependencies": {
     "feather-icons": "^4.29.2",
@@ -62,6 +62,7 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0"
   },

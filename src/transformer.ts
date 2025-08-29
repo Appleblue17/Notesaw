@@ -76,6 +76,9 @@ function transformNote(tree: Element, map: String[]) {
         handleInlineBlock(node, className);
       } else if (className.endsWith("-block-mdast")) {
         handleBlock(node, className);
+      } else if (className.includes("box")) {
+        // Box syntax, shown as span
+        node.tagName = "span";
       }
     }
   });
