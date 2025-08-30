@@ -13,7 +13,7 @@ function updateHtml(newHtml) {
  * @param {string} data.next - ID of the block after cursor
  */
 function syncPreview(data) {
-  let { line, rangeStart, rangeEnd, last, next } = data;
+  let { line, rangeStart, rangeEnd, last, next, lastStartLine, lastEndLine } = data;
   const viewportHeight = window.innerHeight;
   const markdownBody = document.getElementsByClassName("markdown-body")[0];
 
@@ -29,22 +29,21 @@ function syncPreview(data) {
   if (percent > 0.9) percent = 0.9;
   const editorCursorPos = viewportHeight * percent;
 
-  if (!last) {
-    // At the beginning, scroll to the top smoothly
-    markdownBody.scrollIntoView({
-      block: "start",
-    });
-  } else if (!next) {
+  if (!next) {
     // At the end, scroll to the bottom smoothly
     markdownBody.scrollIntoView({
       block: "end",
     });
+  } else if (!last) {
+    // At the beginning, scroll to the top smoothly
+    markdownBody.scrollIntoView({
+      block: "start",
+    });
   } else if (last === next) {
-    // Cursor is within an element
-    const info = last.split("-");
-    const blockStart = parseInt(info[1]),
-      blockEnd = parseInt(info[2]);
+    const blockStart = lastStartLine,
+      blockEnd = lastEndLine;
     const block = document.getElementById(last);
+    console.log("Found block:", block, blockStart, blockEnd);
 
     if (block) {
       const blockTop = block.getBoundingClientRect().top;
@@ -69,25 +68,19 @@ function syncPreview(data) {
     }
   } else {
     // Cursor is between two elements
-    const blockLastInfo = last.split("-");
-    const blockNextInfo = next.split("-");
-    const blockLastEnd = parseInt(blockLastInfo[2]);
-    const blockNextStart = parseInt(blockNextInfo[1]);
-
     const blockLast = document.getElementById(last);
     const blockNext = document.getElementById(next);
 
     if (blockLast && blockNext) {
-      const blockLastTop = blockLast.getBoundingClientRect().top;
+      const blockLastBottom = blockLast.getBoundingClientRect().bottom;
       const blockNextTop = blockNext.getBoundingClientRect().top;
-      const blockGap = blockNextTop - blockLastTop;
+      const blockGap = blockNextTop - blockLastBottom;
       const scrollTop = window.pageYOffset;
 
       // Calculate proportional position in the gap between blocks
-      const previewCursorPos =
-        (blockGap * (line - blockLastEnd + 0.5)) / (blockNextStart - blockLastEnd + 1);
+      const previewCursorPos = blockGap * 0.5;
       // Calculate the scroll position
-      const scrollPosition = scrollTop + blockLastTop + previewCursorPos - editorCursorPos;
+      const scrollPosition = scrollTop + blockLastBottom + previewCursorPos - editorCursorPos;
 
       // Scroll to the calculated position smoothly
       // Calculate the scroll distance

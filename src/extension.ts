@@ -11,6 +11,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import noteProcess, { noteProcessPure } from "./note-extention.ts";
+import { map, mapStartLine, mapEndLine } from "./transformer.ts";
 
 /**
  * Activates the Notesaw extension
@@ -22,8 +23,8 @@ export function activate(context: vscode.ExtensionContext) {
   let panel: vscode.WebviewPanel | undefined = undefined;
   let activeCursorLine = 0;
   let visibleRange: vscode.Range | undefined = undefined;
-  let mapLast: String[] = []; // Maps editor line numbers to block IDs for scrolling
-  let mapNext: String[] = []; // Maps editor line numbers to next block IDs for boundary detection
+  let mapLast: number[] = []; // Maps editor line numbers to block IDs for scrolling
+  let mapNext: number[] = []; // Maps editor line numbers to next block IDs for boundary detection
 
   /**
    * Synchronizes the preview panel with the editor
@@ -35,14 +36,19 @@ export function activate(context: vscode.ExtensionContext) {
     const rangeStart = visibleRange.start.line + 1,
       rangeEnd = visibleRange.end.line + 1;
     const line = Math.max(rangeStart, Math.min(rangeEnd, activeCursorLine + 1));
-    console.log("Syncing preview:", { line, last: mapLast[line], next: mapNext[line] });
+    const last = mapLast[line],
+      next = mapNext[line];
+
+    console.log("Syncing preview:", { line, last, next });
     panel.webview.postMessage({
       command: "syncPreview",
       line,
       rangeStart,
       rangeEnd,
-      last: mapLast[line],
-      next: mapNext[line],
+      last,
+      next,
+      lastStartLine: mapStartLine[last],
+      lastEndLine: mapEndLine[last],
     });
   };
 
@@ -52,18 +58,26 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleDocChange = async (document: vscode.TextDocument) => {
     if (!panel) return;
-    console.time("noteProcessPure");
-    const res = await noteProcessPure(document.getText());
-    console.timeEnd("noteProcessPure");
-    mapLast = res.mapLast;
-    mapNext = res.mapNext;
+    // console.time("noteProcessPure");
+    const html = await noteProcessPure(document.getText());
 
-    console.time("updateDoc");
+    mapLast = [...map];
+    mapNext = [...map];
+    for (let i = 1; i < map.length; i++) {
+      if (!mapLast[i]) mapLast[i] = mapLast[i - 1];
+    }
+    for (let i = map.length - 2; i >= 0; i--) {
+      if (!map[i]) mapNext[i] = mapNext[i + 1];
+    }
+
+    // console.timeEnd("noteProcessPure");
+
+    // console.time("updateDoc");
     panel.webview.postMessage({
       command: "updateHtml",
-      html: res.html,
+      html,
     });
-    console.timeEnd("updateDoc");
+    // console.timeEnd("updateDoc");
     handlePreviewSync();
   };
 
@@ -174,6 +188,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeTextDocument(
           (e) => {
             if (e.document.languageId === "notesaw" && panel?.visible) {
+              console.log("Document changed, updating preview...");
               handleDocChange(e.document);
             }
           },

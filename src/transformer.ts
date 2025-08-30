@@ -21,9 +21,9 @@ function hashString(str: string): number {
 /**
  * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
  */
-export function noteTransformPlugin(map: String[]) {
+export function noteTransformPlugin() {
   return function transformer(tree: Element) {
-    return transformNote(tree, map);
+    return transformNote(tree);
   };
 }
 
@@ -60,11 +60,29 @@ const iconMap: Record<string, string> = {
   variables: "list",
 };
 
+let counter = 0;
+export const map: number[] = [],
+  mapFather: number[] = [-1],
+  mapDepth: number[] = [-1],
+  mapStartLine: number[] = [-1],
+  mapEndLine: number[] = [-1];
+
+function getNewId(): number {
+  counter++;
+  return counter;
+}
+function extendMapArray(totalLines: number) {
+  if (totalLines > map.length) {
+    map.length = totalLines + 1;
+    for (let i = map.length; i <= totalLines; i++) map[i] = 0;
+  }
+}
+
 /**
  * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
  * @param {Element} tree - The syntax tree to transform
  */
-function transformNote(tree: Element, map: String[]) {
+function transformNote(tree: Element) {
   if (!tree || !tree.children.length) return;
   tree.position = tree.children[0].position;
 
@@ -83,26 +101,47 @@ function transformNote(tree: Element, map: String[]) {
     }
   });
 
-  let count = 0;
   visit(tree, "element", (node: Element) => {
     if (!node.position) return;
     const start = node.position.start,
       end = node.position.end;
-    const id = "n-" + start.line + "-" + end.line + "-" + count;
-    count++;
+
+    extendMapArray(end.line);
+
+    if (!node.properties || !node.properties.id) {
+      const newId = getNewId();
+      node.properties = {
+        ...node.properties,
+        id: newId,
+      };
+      mapDepth.push(0);
+      mapFather.push(0);
+      mapStartLine.push(start.line);
+      mapEndLine.push(end.line);
+    }
+    const id: number = Number(node.properties.id);
+    const depth = mapDepth[id];
+
     // Use data property to store custom attributes
-    node.properties = {
-      ...node.properties,
-      id,
-    };
 
     let currentLine = start.line;
     let firstChild = true;
     for (let child of node.children) {
-      if (child.type === "text" || !child.position) continue;
+      if (child.type !== "element" || !child.position) continue;
       const childStartLine = child.position.start.line;
+      const childEndLine = child.position.end.line;
 
-      if (!firstChild) {
+      const newId = getNewId();
+      child.properties = {
+        ...child.properties,
+        id: newId,
+      };
+      mapDepth.push(depth + 1);
+      mapFather.push(id);
+      mapStartLine.push(childStartLine);
+      mapEndLine.push(childEndLine);
+
+      if (firstChild) {
         for (let i = currentLine; i < childStartLine; i++) map[i] = id;
         firstChild = false;
       }

@@ -15,7 +15,7 @@ import rehypeStringify from "rehype-stringify";
 import fs from "fs";
 import prettyPrint from "./utils/prettyprint.ts";
 import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import { noteTransformPlugin } from "./transformer.ts";
+import { noteTransformPlugin, map, mapDepth, mapFather } from "./transformer.ts";
 
 /**
  * Processes a note document and converts it to HTML
@@ -49,13 +49,12 @@ export default async function noteProcess(
   webviewScriptUri: string,
   cspSource: string
 ): Promise<string> {
-  const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin)
     .use(noteBoxParsePlugin)
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(rehypeKatex) // Add KaTeX support
-    .use(noteTransformPlugin, map) // Transform custom AST
+    .use(noteTransformPlugin) // Transform custom AST
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
       js: [morphdomUri, webviewScriptUri],
@@ -82,12 +81,8 @@ export default async function noteProcess(
   return finalHtml;
 }
 
-export async function noteProcessPure(
-  doc: string
-): Promise<{ html: String; mapLast: String[]; mapNext: String[] }> {
-  const map: String[] = [];
-
-  console.time("process");
+export async function noteProcessPure(doc: string): Promise<String> {
+  // console.time("process");
 
   // Create a single unified processor with all plugins
   const processor = unified()
@@ -95,34 +90,22 @@ export async function noteProcessPure(
     .use(noteBoxParsePlugin)
     .use(remarkRehype)
     .use(rehypeKatex)
-    .use(noteTransformPlugin, map)
+    .use(noteTransformPlugin)
     .use(rehypeStringify);
 
-  console.time("parsing");
+  // console.time("parsingMDAST");
   const mdast = processor.parse(doc) as MdastRoot;
+  // console.timeEnd("parsingMDAST");
 
-  const totalLines = mdast.position!.end.line;
-  for (let i = 0; i <= totalLines; i++) map.push("");
-
+  // console.time("parsingHAST");
   const hast = (await processor.run(mdast)) as HastRoot;
-  console.timeEnd("parsing");
+  // console.timeEnd("parsingHAST");
 
-  console.time("lineMapping");
-
-  const mapLast = [...map],
-    mapNext = [...map];
-  for (let i = 1; i < map.length; i++) {
-    if (mapLast[i] === "") mapLast[i] = mapLast[i - 1];
-  }
-  for (let i = map.length - 2; i >= 0; i--) {
-    if (map[i] === "") mapNext[i] = mapNext[i + 1];
-  }
-
+  // console.time("stringifyingHAST");
   // Generate the final HTML string
   const html = String(processor.stringify(hast));
+  // console.timeEnd("stringifyingHAST");
 
-  console.timeEnd("lineMapping");
-
-  console.timeEnd("process");
-  return { html, mapLast, mapNext };
+  // console.timeEnd("process");
+  return html;
 }

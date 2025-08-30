@@ -12,7 +12,7 @@ import rehypeStringify from "rehype-stringify";
 import fs from "fs";
 import prettyPrint from "./utils/prettyprint.ts";
 import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import { noteTransformPlugin } from "./transformer.ts";
+import { noteTransformPlugin, map, mapDepth, mapFather } from "./transformer.ts";
 import rehypeFormat from "rehype-format";
 import rehypeDocument from "rehype-document";
 import { NoteNode } from "./index.ts";
@@ -46,27 +46,33 @@ export default async function noteProcessConvert(
   katexCssUri: string,
   featherSvgPath: string
 ): Promise<string> {
-  const map: String[] = [];
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
     .use(noteBoxParsePlugin) // Custom parser processes box syntax
-    // .use(() => (ast: NoteNode) => {
-    //   console.log("After remarkParse");
-    //   console.log(prettyPrint(ast)); // Debug intermediate tree
-    // })
+    .use(() => (ast: NoteNode) => {
+      console.log("After remarkParse");
+      console.log(prettyPrint(ast)); // Debug intermediate tree
+    })
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(rehypeKatex) // Add KaTeX support
-    .use(noteTransformPlugin, map) // Transform custom AST
-    // .use(() => (ast: NoteNode) => {
-    //   console.log("After remarkRehype");
-    //   console.log(prettyPrint(ast)); // Debug after custom compiler
-    // })
+    .use(noteTransformPlugin) // Transform custom AST
+    .use(() => (ast: NoteNode) => {
+      console.log("After remarkRehype");
+      console.log(prettyPrint(ast)); // Debug after custom compiler
+    })
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
     })
     .use(rehypeFormat)
     .use(rehypeStringify) // Stringify the final HTML
     .process(doc);
+
+  for (let i = 0; i < map.length; i++) {
+    console.log(i, map[i]);
+  }
+  for (let i = 0; i < mapDepth.length; i++) {
+    console.log(i, mapDepth[i], mapFather[i]);
+  }
 
   const htmlString = String(vfile);
 

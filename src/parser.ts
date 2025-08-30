@@ -56,9 +56,15 @@ const lines: number[] = [],
  * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
  */
 function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
-  const lines = str.split("\n");
+  let lines = str.split("\n");
   const trimNums: number[] = [0],
     mathNums: number[] = [0];
+
+  // trim trailing empty lines
+  while (lines.length && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
   for (let i = 0; i < lines.length; i++) {
     let trimNum = 0;
     while (trimNum < trailSpaces && trimNum < lines[i].length && lines[i][trimNum] === " ")
@@ -507,6 +513,22 @@ function parseNote(text: string): NoteNode {
 
 export function noteBoxParsePlugin() {
   return function (tree: NoteNode) {
+    /* Handle math syntax */
+    /* KateX plugin doesn't handle positioning correctly, so we need to manually transmit it */
+    visit(tree, "markdown", (node: any) => {
+      node.children.forEach((child: any, idx: number) => {
+        if (child.type === "math") {
+          const wrapperNode = {
+            type: "math-wrapper",
+            data: { hName: "div" },
+            children: [child],
+            position: child.position,
+          };
+          node.children[idx] = wrapperNode;
+        }
+      });
+    });
+
     /* Handle box syntax */
     visit(tree, "html", (node: any) => {
       // value is like <box data="{content}" />
