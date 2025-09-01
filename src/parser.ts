@@ -16,6 +16,9 @@ const abbrMap: Record<string, string> = {
   warn: "warning",
   vars: "variables",
   var: "variables",
+  alg: "algorithm",
+  prob: "problem",
+  sol: "solution",
 };
 
 /**
@@ -223,9 +226,9 @@ function parseNote(text: string): NoteNode {
   /**
    * Parse the block begin syntax.
    *
-   * Syntax: `'+'? '@' label [?!*]? (' '+ defName ' '*)? '{'`
-   * label: [a-z-]+
-   * defName: [^\n]+ (\n' '*)?
+   * Syntax: `'+'? '@' label [?!*]? (' '+ name ' '*)? '{'`
+   * label: [a-z]+
+   * name: [^\n]+ (\n' '*)?
    *
    * @param {number} beginIndex The starting index to parse the syntax.
    * @returns `null` if match failed; `{ endIndex, matchNode: {type, data, position, style, children, isLink} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
@@ -334,7 +337,7 @@ function parseNote(text: string): NoteNode {
    * Parse the inline block syntax.
    *
    * Syntax: `'+'? '@' label [?!*]? ' ' content '\n'`
-   * label: [a-z-]+
+   * label: [a-z]+
    * content: [^\n]*
    *
    * @param {number} beginIndex The starting index to parse the syntax.

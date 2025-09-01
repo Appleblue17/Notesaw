@@ -51,13 +51,21 @@ const iconMap: Record<string, string> = {
   corollary: "corner-right-down",
   def: "compass",
   definition: "compass",
+  tip: "info",
   note: "bookmark",
-  remark: "message-circle",
+  remark: "bell",
+  reminder: "bell",
+  key: "key",
   example: "list",
   problem: "help-circle",
   solution: "check",
   warning: "alert-triangle",
+  caution: "alert-octagon",
   variables: "list",
+  algorithm: "cpu",
+  code: "code",
+  important: "star",
+  remember: "star",
 };
 
 export let counter = 0;
@@ -109,7 +117,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
   const isValidElement = (node: Element): boolean => {
     if (!node || node.type !== "element" || !node.position) return false;
     if (!labelRoot && node.properties.class === "markdown-body") return false; // skip root
-    // if (node.tagName === "li") return false; // skip list items
     if (typeof node.properties.class === "string" && node.properties.class.includes("block-body"))
       return false;
 
@@ -120,11 +127,11 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     if (node.tagName === "ul") return false;
     if (node.tagName === "ol") return false;
     if (node.tagName === "p") return false;
-    if (
-      typeof node.properties.class === "string" &&
-      node.properties.class.includes("block-container")
-    )
-      return false;
+    if (node.tagName === "table") return false;
+    if (typeof node.properties.class === "string") {
+      if (node.properties.class.includes("block-container")) return false;
+      if (node.properties.class.includes("box")) return false;
+    }
 
     return true;
   };

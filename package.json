@@ -27,7 +27,7 @@
         "command": "notesaw.showPreview",
         "title": "Start Notesaw preview to the Side",
         "category": "Notesaw",
-        "icon": "$(open-preview)"
+        "icon": "$(preview)"
       }
     ]
   },

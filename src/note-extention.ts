@@ -54,7 +54,7 @@ export async function noteProcessInit(
       ],
     })
     .use(rehypeStringify) // Stringify the final HTML
-    .process("");
+    .process("### Rendering Notesaw Preview...\n#### Please wait...");
 
   const htmlString = String(vfile);
 
