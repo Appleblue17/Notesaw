@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
-import { visit } from "unist-util-visit";
+import { CONTINUE, visit } from "unist-util-visit";
 import prettyPrint from "./utils/prettyprint.ts";
 import remarkStringify from "remark-stringify";
 
@@ -56,28 +56,33 @@ const lines: number[] = [],
  * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
  */
 function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
+  while (str.length && (str[0] === "\n" || str[0] === " ")) (str = str.slice(1)), offset++;
+
   let lines = str.split("\n");
   const trimNums: number[] = [0],
-    mathNums: number[] = [0];
+    mathNums: number[] = [0],
+    boxNums: number[] = [];
 
   // trim trailing empty lines
-  while (lines.length && lines[lines.length - 1] === "") {
-    lines.pop();
-  }
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
 
+  let localOffset = 0;
   for (let i = 0; i < lines.length; i++) {
     let trimNum = 0;
     while (trimNum < trailSpaces && trimNum < lines[i].length && lines[i][trimNum] === " ")
       trimNum++;
     lines[i] = lines[i].slice(trimNum);
 
-    let boxNum = 0;
     let match;
     const boxRegex = /\@\[([^\@]*)\]/;
-    if ((match = boxRegex.exec(lines[i])) !== null) {
+    while ((match = boxRegex.exec(lines[i])) !== null) {
       const [fullMatch, content] = match;
       lines[i] = lines[i].replace(fullMatch, `<box data="${content}"/>`);
-      boxNum++;
+      const matchOffset = localOffset + match.index + 1;
+      while (boxNums.length <= matchOffset) boxNums.push(0);
+      boxNums[matchOffset]++;
+
+      // console.log(localOffset, match.index, matchOffset);
     }
 
     trimNums.push(trimNums[trimNums.length - 1] + trimNum);
@@ -85,24 +90,32 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
 
     // Match `\$\$([^$]*)\$\$` and replace with `$$\n$1\n$$\n`
     const mathRegex = /^\s*\$\$([^$\n]*)\$\$/;
-    while ((match = mathRegex.exec(lines[i])) !== null) {
+    if ((match = mathRegex.exec(lines[i])) !== null) {
       lines[i] = lines[i].replace(mathRegex, "$$$$\n$1\n$$$$\n");
       mathNums.push(mathNums[mathNums.length - 1]);
       mathNums.push(mathNums[mathNums.length - 1] + 1);
       mathNums.push(mathNums[mathNums.length - 1]);
     }
+
+    localOffset += lines[i].length + 1;
+    while (boxNums.length <= localOffset) boxNums.push(0);
   }
-  const trimedLines = lines.join("\n");
+  for (let i = 1; i < boxNums.length; i++) boxNums[i] += boxNums[i - 1];
+
+  const trimmedLines = lines.join("\n");
+
+  // console.log("Trimmed lines:", trimmedLines);
 
   const ast = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
-    .parse(trimedLines) as NoteNode;
+    .parse(trimmedLines) as NoteNode;
 
   if (!ast.children.length) return null;
 
-  let boxNum = 0;
+  // console.log("Parsed native markdown to AST:", prettyPrint(ast));
+
   /**
    * Recursively updates position information for all nodes in the AST.
    * Corrects offsets by accounting for the leading spaces that were trimmed
@@ -116,15 +129,20 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
       const endLine = node.position.end.line - mathNums[node.position.end.line] * 3;
       const startOffset = node.position.start.offset! - mathNums[node.position.start.line - 1] * 3;
       const endOffset = node.position.end.offset! - mathNums[node.position.end.line] * 3;
-      const startPos = startOffset + offset + trimNums[startLine] - boxNum * 11;
-      let endPos = endOffset + offset + trimNums[endLine] - boxNum * 11;
+      let startPos = startOffset + offset + trimNums[startLine] - boxNums[startOffset] * 11;
+      let endPos = endOffset + offset + trimNums[endLine] - boxNums[endOffset] * 11;
 
-      if (node.type === "html") boxNum++, (endPos += 3);
+      if (node.type === "html" && node.value.includes("box")) {
+        startPos += 2;
+        endPos += 2;
+      }
+
+      // console.log(node.type, startOffset, boxNums[startOffset], endOffset, boxNums[endOffset]);
 
       node.position.start = getPosition(startPos);
       node.position.end = getPosition(endPos);
     }
-    if (!node.children) return;
+    if (!node.children) return CONTINUE;
     for (const child of node.children) {
       traverse(child);
     }
@@ -378,11 +396,7 @@ function parseNote(text: string): NoteNode {
         index++;
       }
 
-      if (
-        index < input.length &&
-        (input[index] === " " || input[index] === "{" || input[index] === "\n")
-      )
-        return parseBlockContent();
+      if (index < input.length && input[index] === " ") return parseBlockContent();
       else return parseBlockStyle();
     }
     function parseBlockStyle() {
@@ -412,7 +426,6 @@ function parseNote(text: string): NoteNode {
         };
         blockChildren.push(parsedContent);
       }
-      index++;
       return ok();
     }
   };
@@ -484,19 +497,20 @@ function parseNote(text: string): NoteNode {
       blockStack[blockStack.length - 1].current = index;
     } else {
       if (char === "}" && columns[index] === (indentLevel - 1) * 4 + 1) {
-        if (blockStack.length > 1) {
-          const { node: selfNode, current: last } = blockStack.pop()!;
+        const { node: selfNode, current: last } = blockStack.pop()!;
 
-          if (selfNode) {
-            const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
-            if (selfNode.type === "block") {
-              if (ast) selfNode.children.push(ast);
-              indentLevel--;
-            }
-
-            selfNode.position!.end = getPosition(index + 1);
-            blockStack[blockStack.length - 1].current = index + 1;
+        if (selfNode) {
+          const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
+          if (selfNode.type === "block") {
+            if (ast) selfNode.children.push(ast);
+            indentLevel--;
           }
+
+          selfNode.position!.end = getPosition(index + 1);
+
+          // skip to the end of this line
+          while (index < length && input[index] !== "\n") index++;
+          blockStack[blockStack.length - 1].current = index + 1;
         }
       }
       index++;

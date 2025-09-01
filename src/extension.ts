@@ -10,8 +10,19 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import noteProcess, { noteProcessPure } from "./note-extention.ts";
-import { map, mapStartLine, mapEndLine } from "./transformer.ts";
+import { noteProcessInit, noteProcess } from "./note-extention.ts";
+import {
+  counter,
+  setCounter,
+  map,
+  mapStartLine,
+  mapEndLine,
+  mapDepth,
+  mapFather,
+  extendMapArray,
+} from "./transformer.ts";
+
+let totalLines = 0;
 
 /**
  * Activates the Notesaw extension
@@ -23,8 +34,36 @@ export function activate(context: vscode.ExtensionContext) {
   let panel: vscode.WebviewPanel | undefined = undefined;
   let activeCursorLine = 0;
   let visibleRange: vscode.Range | undefined = undefined;
-  let mapLast: number[] = []; // Maps editor line numbers to block IDs for scrolling
-  let mapNext: number[] = []; // Maps editor line numbers to next block IDs for boundary detection
+  let mapLast: (number | undefined)[] = []; // Maps editor line numbers to block IDs for scrolling
+  let mapNext: (number | undefined)[] = []; // Maps editor line numbers to next block IDs for boundary detection
+
+  const cleanUp = () => {
+    // console.log("Cleaning up...");
+    panel = undefined;
+    totalLines = 0;
+    activeCursorLine = 0;
+    visibleRange = undefined;
+    mapLast = [];
+    mapNext = [];
+    setCounter(0);
+
+    map.length = 1;
+    mapStartLine.length = 1;
+    mapEndLine.length = 1;
+    mapDepth.length = 1;
+    mapFather.length = 1;
+  };
+
+  const updateMapLastNext = () => {
+    mapLast = [...map];
+    mapNext = [...map];
+    for (let i = 1; i < map.length; i++) {
+      if (!mapLast[i]) mapLast[i] = mapLast[i - 1];
+    }
+    for (let i = map.length - 2; i >= 0; i--) {
+      if (!mapNext[i]) mapNext[i] = mapNext[i + 1];
+    }
+  };
 
   /**
    * Synchronizes the preview panel with the editor
@@ -39,7 +78,7 @@ export function activate(context: vscode.ExtensionContext) {
     const last = mapLast[line],
       next = mapNext[line];
 
-    console.log("Syncing preview:", { line, last, next });
+    // console.log("Syncing preview:", { line, last, next });
     panel.webview.postMessage({
       command: "syncPreview",
       line,
@@ -47,8 +86,8 @@ export function activate(context: vscode.ExtensionContext) {
       rangeEnd,
       last,
       next,
-      lastStartLine: mapStartLine[last],
-      lastEndLine: mapEndLine[last],
+      lastStartLine: last !== undefined ? mapStartLine[last] : undefined,
+      lastEndLine: last !== undefined ? mapEndLine[last] : undefined,
     });
   };
 
@@ -56,29 +95,123 @@ export function activate(context: vscode.ExtensionContext) {
    * Updates the preview webview with content from the given document
    * @param document The text document to render in the preview
    */
-  const handleDocChange = async (document: vscode.TextDocument) => {
+  const handleDocChange = async (editor: vscode.TextEditor, document: vscode.TextDocument) => {
     if (!panel) return;
-    // console.time("noteProcessPure");
-    const html = await noteProcessPure(document.getText());
+    totalLines = editor.document.lineCount;
+    extendMapArray(totalLines);
 
-    mapLast = [...map];
-    mapNext = [...map];
-    for (let i = 1; i < map.length; i++) {
-      if (!mapLast[i]) mapLast[i] = mapLast[i - 1];
-    }
-    for (let i = map.length - 2; i >= 0; i--) {
-      if (!map[i]) mapNext[i] = mapNext[i + 1];
-    }
+    const html = await noteProcess(document.getText(), 0, 0, true);
+    updateMapLastNext();
 
-    // console.timeEnd("noteProcessPure");
-
-    // console.time("updateDoc");
     panel.webview.postMessage({
       command: "updateHtml",
       html,
     });
-    // console.timeEnd("updateDoc");
+
+    // console.log("Total lines:", totalLines);
+    // console.log("Map:", map);
+    // console.log("Map Start Line:", mapStartLine);
+    // console.log("Map End Line:", mapEndLine);
+
     handlePreviewSync();
+  };
+
+  const handleTextChange = async (
+    editor: vscode.TextEditor,
+    change: vscode.TextDocumentContentChangeEvent
+  ) => {
+    if (!panel) return;
+    const startLine = change.range.start.line + 1;
+    const endLine = change.range.end.line + 1;
+    const textLines = change.text.split(/\r?\n/).length;
+    console.log("/------ Start Handling Change ------/");
+    console.log("startLine:", startLine, "endLine:", endLine, "textLines:", textLines);
+
+    const getTextFromLineRange = (start: number, end: number) => {
+      const range = new vscode.Range(
+        start - 1,
+        0,
+        end - 1,
+        editor.document.lineAt(end - 1).text.length
+      );
+      return editor.document.getText(range);
+    };
+    const findLCA = (x: number, y: number) => {
+      while (mapDepth[x] > mapDepth[y]) x = mapFather[x];
+      while (mapDepth[y] > mapDepth[x]) y = mapFather[y];
+      if (x === y) return [x, x, mapFather[x]];
+
+      while (mapFather[x] !== mapFather[y]) {
+        x = mapFather[x];
+        y = mapFather[y];
+      }
+      return [x, y, mapFather[x]];
+    };
+
+    const newEndLine = startLine + textLines - 1;
+    const deltaLength = newEndLine - endLine;
+
+    let last = mapLast[startLine] !== undefined ? mapLast[startLine] : mapNext[startLine];
+    let next = mapNext[endLine] !== undefined ? mapNext[endLine] : mapLast[endLine];
+    if (last === undefined || next === undefined) {
+      handleDocChange(editor, editor.document);
+      return;
+    }
+    const [x, y, fat] = findLCA(last, next);
+
+    // console.log("Last:", last, "Next:", next, "lca: ", x, y, fat);
+    // console.log("newEndLine:", newEndLine, "deltaLength:", deltaLength);
+
+    const xLine = Math.min(mapStartLine[x], startLine);
+    const yLine = Math.max(mapEndLine[y], endLine);
+    const newYLine = yLine + deltaLength;
+
+    // Maintain map arrays to ensure they are in sync
+    const editorTotalLines = editor.document.lineCount;
+
+    for (let i = 1; i <= counter; i++) {
+      if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
+      if (mapEndLine[i] > yLine) mapEndLine[i] += deltaLength;
+    }
+
+    extendMapArray(editorTotalLines);
+    if (deltaLength > 0) {
+      for (let i = totalLines; i > yLine; i--) map[i + deltaLength] = map[i];
+    } else {
+      for (let i = yLine + 1; i <= totalLines; i++) map[i + deltaLength] = map[i];
+    }
+    for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
+
+    const raw = getTextFromLineRange(xLine, newYLine);
+    const html = await noteProcess(raw, xLine - 1, fat, false);
+
+    updateMapLastNext();
+    totalLines = editorTotalLines;
+
+    console.log("changed range:", xLine, yLine, newYLine);
+    console.log("Changed text:\n" + raw);
+    // console.log("Now map:");
+    // for (let i = 1; i <= totalLines; i++) {
+    //   console.log(i, map[i], mapLast[i], mapNext[i]);
+    // }
+    // console.log("Now tree:");
+    // for (let i = 1; i <= counter; i++) {
+    //   console.log(i, mapStartLine[i], mapEndLine[i], mapFather[i]);
+    // }
+    // console.log("Partial update:", { x, y, fat });
+    // console.log("update html:");
+    // console.log(html);
+
+    // Send message to update the preview
+    panel.webview.postMessage({
+      command: "partialUpdateHtml",
+      html,
+      x,
+      y,
+      fat,
+    });
+
+    // console.log("/------ End Handling Change ------/");
   };
 
   /**
@@ -103,11 +236,68 @@ export function activate(context: vscode.ExtensionContext) {
     handlePreviewSync();
   };
 
+  // Set up event listeners for content updates
+
+  // Update when text changes in the current document
+  vscode.workspace.onDidChangeTextDocument(
+    (e) => {
+      if (e.document.languageId === "notesaw" && panel?.visible) {
+        // console.log("Document changed, updating preview...");
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+          e.contentChanges.forEach((change) => {
+            handleTextChange(editor, change);
+          });
+        }
+      }
+    },
+    null,
+    context.subscriptions
+  );
+
+  // Update when the active editor changes to keep preview in sync
+  vscode.window.onDidChangeActiveTextEditor(
+    (editor) => {
+      if (editor && editor.document.languageId === "notesaw" && panel?.visible) {
+        handleDocChange(editor, editor.document);
+        handleCursorLineChange(editor.selection.active.line);
+        handleVisibleRangeChange(editor.visibleRanges[0]);
+      }
+    },
+    null,
+    context.subscriptions
+  );
+
+  // Listen for selection changes to sync cursor position with preview
+  vscode.window.onDidChangeTextEditorSelection((e) => {
+    if (e.textEditor.document.languageId !== "notesaw") return;
+
+    const line = e.selections[0].active.line;
+    if (line !== activeCursorLine) {
+      handleCursorLineChange(line);
+    }
+  });
+
+  // Listen for scrolling to sync visible range with preview
+  vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
+    if (e.textEditor.document.languageId !== "notesaw") return;
+
+    const range = e.visibleRanges[0];
+    if (
+      range.start.line !== visibleRange?.start.line ||
+      range.end.line !== visibleRange?.end.line
+    ) {
+      handleVisibleRangeChange(range);
+    }
+  });
+
   // Register the command to show the Notesaw preview
   context.subscriptions.push(
     vscode.commands.registerCommand("notesaw.showPreview", async () => {
       // The main command handler that creates and manages the preview panel
       // This is triggered when the user runs the "Notesaw: Show Preview" command
+
+      // console.log("Show Preview command triggered");
 
       const editor = vscode.window.activeTextEditor;
       if (editor) {
@@ -119,6 +309,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Create the preview panel if it doesn't exist
         if (!panel) {
+          // console.log("Creating new panel");
           panel = vscode.window.createWebviewPanel(
             "notesaw", // Type ID
             "Notesaw", // Panel title
@@ -133,13 +324,7 @@ export function activate(context: vscode.ExtensionContext) {
           handleVisibleRangeChange(editor.visibleRanges[0]);
 
           // Handle panel disposal
-          panel.onDidDispose(
-            () => {
-              panel = undefined; // Reset the panel reference when closed
-            },
-            null,
-            context.subscriptions
-          );
+          panel.onDidDispose(cleanUp, null, context.subscriptions);
         }
 
         // Show the panel next to the editor
@@ -168,9 +353,8 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.Uri.joinPath(context.extensionUri, "assets", "script", "webview-script.js")
         );
 
-        // Initialize the webview with the HTML content
-        const resHtml = await noteProcess(
-          editor.document.getText(),
+        // Initialize the webview with the HTML content (don't need text)
+        const resHtml = await noteProcessInit(
           noteCssUri.toString(),
           ghmCssUri.toString(),
           katexCssUri.toString(),
@@ -180,57 +364,7 @@ export function activate(context: vscode.ExtensionContext) {
           panel.webview.cspSource
         );
         panel.webview.html = resHtml;
-        handleDocChange(editor.document);
-
-        // Set up event listeners for content updates
-
-        // Update when text changes in the current document
-        vscode.workspace.onDidChangeTextDocument(
-          (e) => {
-            if (e.document.languageId === "notesaw" && panel?.visible) {
-              console.log("Document changed, updating preview...");
-              handleDocChange(e.document);
-            }
-          },
-          null,
-          context.subscriptions
-        );
-
-        // Update when the active editor changes to keep preview in sync
-        vscode.window.onDidChangeActiveTextEditor(
-          (newEditor) => {
-            if (newEditor && newEditor.document.languageId === "notesaw" && panel?.visible) {
-              handleDocChange(newEditor.document);
-              handleCursorLineChange(editor.selection.active.line);
-              handleVisibleRangeChange(editor.visibleRanges[0]);
-            }
-          },
-          null,
-          context.subscriptions
-        );
-
-        // Listen for selection changes to sync cursor position with preview
-        vscode.window.onDidChangeTextEditorSelection((e) => {
-          if (e.textEditor.document.languageId !== "notesaw") return;
-
-          const line = e.selections[0].active.line;
-          if (line !== activeCursorLine) {
-            handleCursorLineChange(line);
-          }
-        });
-
-        // Listen for scrolling to sync visible range with preview
-        vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
-          if (e.textEditor.document.languageId !== "notesaw") return;
-
-          const range = e.visibleRanges[0];
-          if (
-            range.start.line !== visibleRange?.start.line ||
-            range.end.line !== visibleRange?.end.line
-          ) {
-            handleVisibleRangeChange(range);
-          }
-        });
+        handleDocChange(editor, editor.document);
       }
     })
   );

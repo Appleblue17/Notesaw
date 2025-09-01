@@ -2,7 +2,7 @@
  * @file
  * This module provides a transformation plugin for converting specialized markdown blocks into HTML elements with appropriate styling and icons. It handles various academic and  informational block types (e.g., theorems, definitions, notes) by applying consistent  styling and iconography based on block type.
  */
-import { visit } from "unist-util-visit";
+import { visit, SKIP, CONTINUE } from "unist-util-visit";
 
 import type { Element } from "hast";
 
@@ -21,9 +21,9 @@ function hashString(str: string): number {
 /**
  * Creates a remark/rehype plugin that transforms specially marked blocks in AST.
  */
-export function noteTransformPlugin() {
+export function noteTransformPlugin(baseLine: number, fatherId: number, labelRoot: boolean) {
   return function transformer(tree: Element) {
-    return transformNote(tree);
+    return transformNote(tree, baseLine, fatherId, labelRoot);
   };
 }
 
@@ -60,29 +60,34 @@ const iconMap: Record<string, string> = {
   variables: "list",
 };
 
-let counter = 0;
-export const map: number[] = [],
-  mapFather: number[] = [-1],
+export let counter = 0;
+export function setCounter(val: number) {
+  counter = val;
+}
+
+export const map: (number | undefined)[] = [undefined],
+  mapFather: number[] = [0],
   mapDepth: number[] = [-1],
   mapStartLine: number[] = [-1],
   mapEndLine: number[] = [-1];
+// export function setMap
 
 function getNewId(): number {
   counter++;
   return counter;
 }
-function extendMapArray(totalLines: number) {
+export function extendMapArray(totalLines: number) {
   if (totalLines > map.length) {
     map.length = totalLines + 1;
-    for (let i = map.length; i <= totalLines; i++) map[i] = 0;
-  }
+    for (let i = map.length; i <= totalLines; i++) map[i] = undefined;
+  } else map.length = totalLines + 1;
 }
 
 /**
  * Transforms the AST by finding special block elements and converting them to styled HTML with appropriate structure and icons.
  * @param {Element} tree - The syntax tree to transform
  */
-function transformNote(tree: Element) {
+function transformNote(tree: Element, baseLine: number, fatherId: number, labelRoot: boolean) {
   if (!tree || !tree.children.length) return;
   tree.position = tree.children[0].position;
 
@@ -101,12 +106,38 @@ function transformNote(tree: Element) {
     }
   });
 
-  visit(tree, "element", (node: Element) => {
-    if (!node.position) return;
-    const start = node.position.start,
-      end = node.position.end;
+  const isValidElement = (node: Element): boolean => {
+    if (!node || node.type !== "element" || !node.position) return false;
+    if (!labelRoot && node.properties.class === "markdown-body") return false; // skip root
+    // if (node.tagName === "li") return false; // skip list items
+    if (typeof node.properties.class === "string" && node.properties.class.includes("block-body"))
+      return false;
 
-    extendMapArray(end.line);
+    return true;
+  };
+  const continueTransform = (node: Element) => {
+    if (node.tagName === "blockquote") return false;
+    if (node.tagName === "ul") return false;
+    if (node.tagName === "ol") return false;
+    if (node.tagName === "p") return false;
+    if (
+      typeof node.properties.class === "string" &&
+      node.properties.class.includes("block-container")
+    )
+      return false;
+
+    return true;
+  };
+
+  visit(tree, "element", (node: Element) => {
+    // console.log("HI", node);
+    if (node.type !== "element" || !node.position) return SKIP;
+    if (!isValidElement(node)) return CONTINUE;
+
+    // console.log(node);
+
+    const startLine = node.position!.start.line + baseLine,
+      endLine = node.position!.end.line + baseLine;
 
     if (!node.properties || !node.properties.id) {
       const newId = getNewId();
@@ -114,40 +145,49 @@ function transformNote(tree: Element) {
         ...node.properties,
         id: newId,
       };
-      mapDepth.push(0);
-      mapFather.push(0);
-      mapStartLine.push(start.line);
-      mapEndLine.push(end.line);
+      mapDepth.push(mapDepth[fatherId] + 1);
+      mapFather.push(fatherId);
+      mapStartLine.push(startLine);
+      mapEndLine.push(endLine);
     }
     const id: number = Number(node.properties.id);
     const depth = mapDepth[id];
 
+    // console.log("HELLO", node);
+
     // Use data property to store custom attributes
 
-    let currentLine = start.line;
+    let currentLine = startLine;
     let firstChild = true;
-    for (let child of node.children) {
-      if (child.type !== "element" || !child.position) continue;
-      const childStartLine = child.position.start.line;
-      const childEndLine = child.position.end.line;
 
-      const newId = getNewId();
-      child.properties = {
-        ...child.properties,
-        id: newId,
-      };
-      mapDepth.push(depth + 1);
-      mapFather.push(id);
-      mapStartLine.push(childStartLine);
-      mapEndLine.push(childEndLine);
+    const continueTraversal = continueTransform(node);
 
-      if (firstChild) {
-        for (let i = currentLine; i < childStartLine; i++) map[i] = id;
-        firstChild = false;
+    if (continueTraversal) {
+      for (let child of node.children) {
+        if (child.type !== "element" || !child.position || !isValidElement(child)) continue;
+        const childStartLine = child.position.start.line + baseLine;
+        const childEndLine = child.position.end.line + baseLine;
+
+        const newId = getNewId();
+        child.properties = {
+          ...child.properties,
+          id: newId,
+        };
+        mapDepth.push(depth + 1);
+        mapFather.push(id);
+        mapStartLine.push(childStartLine);
+        mapEndLine.push(childEndLine);
+
+        if (firstChild) {
+          for (let i = currentLine; i < childStartLine; i++) map[i] = id;
+          firstChild = false;
+        }
+        currentLine = childEndLine + 1;
       }
-      currentLine = child.position.end.line + 1;
     }
-    for (let i = currentLine; i <= end.line; i++) map[i] = id;
+    for (let i = currentLine; i <= endLine; i++) map[i] = id;
+
+    return continueTraversal ? CONTINUE : SKIP;
   });
 }
 

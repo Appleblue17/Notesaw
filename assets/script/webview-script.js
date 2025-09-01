@@ -3,6 +3,57 @@ function updateHtml(newHtml) {
   morphdom(document.getElementsByClassName("markdown-body")[0], newHtml);
 }
 
+function partialUpdateHtml(newHtml, x, y, fat) {
+  const markdownBody = document.getElementsByClassName("markdown-body")[0];
+  if (!markdownBody) return;
+
+  // 解析 newHtml 为 DOM 节点集合
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = newHtml;
+  const newChildren = Array.from(tempDiv.childNodes[0].childNodes);
+  // console.log("newChildren:", newChildren);
+
+  // 找到父节点 fat
+  const parent = document.getElementById(fat);
+  if (!parent) return;
+
+  if (x === y) {
+    const target = document.getElementById(x);
+    if (!target) return;
+
+    const refNode = target.nextSibling; // 记录插入点
+    parent.removeChild(target); // 删除 target 节点本身
+
+    // 插入 newHtml 的所有儿子到原位置
+    newChildren.forEach((child) => parent.insertBefore(child, refNode));
+  } else {
+    // console.log("Replacing children between:", x, y);
+
+    // x 和 y 都是 fat 的儿子，且 x 在 y 前面
+    const children = Array.from(parent.childNodes);
+    const startIdx = children.findIndex((node) => node.id === String(x));
+    const endIdx = children.findIndex((node) => node.id === String(y));
+
+    console.log("Found indices:", startIdx, endIdx);
+
+    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
+    // console.log("Replacing nodes between indices:", startIdx, endIdx);
+
+    const refNode = children[endIdx].nextSibling;
+    // console.log("refNode:", refNode);
+
+    // 删除 x 到 y 之间的所有节点（包括 x 和 y）
+    for (let i = startIdx; i <= endIdx; i++) {
+      parent.removeChild(children[i]);
+    }
+
+    // 在 refNode 之前插入 newHtml 的所有儿子
+    newChildren.forEach((child) => {
+      parent.insertBefore(child, refNode);
+    });
+  }
+}
+
 /**
  * Synchronizes the preview with the editor's cursor position
  * @param {Object} data - Synchronization data from the editor
@@ -43,7 +94,6 @@ function syncPreview(data) {
     const blockStart = lastStartLine,
       blockEnd = lastEndLine;
     const block = document.getElementById(last);
-    console.log("Found block:", block, blockStart, blockEnd);
 
     if (block) {
       const blockTop = block.getBoundingClientRect().top;
@@ -100,6 +150,9 @@ window.addEventListener("message", (event) => {
   switch (event.data.command) {
     case "updateHtml":
       updateHtml(event.data.html);
+      break;
+    case "partialUpdateHtml":
+      partialUpdateHtml(event.data.html, event.data.x, event.data.y, event.data.fat);
       break;
     case "syncPreview":
       syncPreview(event.data);

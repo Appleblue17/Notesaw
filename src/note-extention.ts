@@ -15,21 +15,12 @@ import rehypeStringify from "rehype-stringify";
 import fs from "fs";
 import prettyPrint from "./utils/prettyprint.ts";
 import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import { noteTransformPlugin, map, mapDepth, mapFather } from "./transformer.ts";
+import { noteTransformPlugin } from "./transformer.ts";
+import { NoteNode } from "./index.ts";
 
 /**
- * Processes a note document and converts it to HTML
+ * Generate an initial HTML document (framework) without content.
  *
- * This function processes the markdown note through a pipeline of transformations:
- * 1. Preprocesses math formulas
- * 2. Parses the document using custom note parser
- * 3. Converts markdown to HTML
- * 4. Transforms custom note elements
- * 5. Renders math expressions with KaTeX
- * 6. Formats and finalizes the HTML document
- * 7. Injects SVG icons
- *
- * @param doc - Raw note document content
  * @param noteCssUri - URI to the note CSS stylesheet
  * @param ghmCssUri - URI to the GitHub Markdown CSS stylesheet
  * @param katexCssUri - URI to the KaTeX CSS stylesheet
@@ -37,10 +28,8 @@ import { noteTransformPlugin, map, mapDepth, mapFather } from "./transformer.ts"
  * @param morphdomUri - URI to the morphdom library
  * @param webviewScriptUri - URI to the webview script
  * @param cspSource - Content Security Policy source
- * @returns Promise resolving to the final HTML document
  */
-export default async function noteProcess(
-  doc: string,
+export async function noteProcessInit(
   noteCssUri: string,
   ghmCssUri: string,
   katexCssUri: string,
@@ -51,10 +40,7 @@ export default async function noteProcess(
 ): Promise<string> {
   const vfile = await unified()
     .use(noteParsePlugin)
-    .use(noteBoxParsePlugin)
     .use(remarkRehype) // Convert Markdown parts to HTML
-    .use(rehypeKatex) // Add KaTeX support
-    .use(noteTransformPlugin) // Transform custom AST
     .use(rehypeDocument, {
       css: [noteCssUri, ghmCssUri, katexCssUri],
       js: [morphdomUri, webviewScriptUri],
@@ -66,7 +52,7 @@ export default async function noteProcess(
       ],
     })
     .use(rehypeStringify) // Stringify the final HTML
-    .process(doc);
+    .process("");
 
   const htmlString = String(vfile);
 
@@ -81,31 +67,27 @@ export default async function noteProcess(
   return finalHtml;
 }
 
-export async function noteProcessPure(doc: string): Promise<String> {
-  // console.time("process");
-
+export async function noteProcess(
+  doc: string,
+  baseLine: number,
+  fatherId: number,
+  labelRoot: boolean
+): Promise<String> {
   // Create a single unified processor with all plugins
-  const processor = unified()
+  const html = await unified()
     .use(noteParsePlugin)
     .use(noteBoxParsePlugin)
     .use(remarkRehype)
     .use(rehypeKatex)
-    .use(noteTransformPlugin)
-    .use(rehypeStringify);
+    .use(noteTransformPlugin, baseLine, fatherId, labelRoot)
+    .use(rehypeStringify)
+    .process(doc);
 
-  // console.time("parsingMDAST");
-  const mdast = processor.parse(doc) as MdastRoot;
-  // console.timeEnd("parsingMDAST");
+  // const mdast = processor.parse(doc) as MdastRoot;
+  // const hast = (await processor.run(mdast)) as HastRoot;
 
-  // console.time("parsingHAST");
-  const hast = (await processor.run(mdast)) as HastRoot;
-  // console.timeEnd("parsingHAST");
+  // // Generate the final HTML string
+  // const html = String(processor.stringify(hast));
 
-  // console.time("stringifyingHAST");
-  // Generate the final HTML string
-  const html = String(processor.stringify(hast));
-  // console.timeEnd("stringifyingHAST");
-
-  // console.timeEnd("process");
-  return html;
+  return String(html);
 }
