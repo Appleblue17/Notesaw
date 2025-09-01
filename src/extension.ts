@@ -21,6 +21,8 @@ import {
   mapFather,
   extendMapArray,
 } from "./transformer.ts";
+import { Uri } from "vscode";
+import { setWorkspaceUri } from "./env.ts";
 
 let totalLines = 0;
 
@@ -124,8 +126,8 @@ export function activate(context: vscode.ExtensionContext) {
     const startLine = change.range.start.line + 1;
     const endLine = change.range.end.line + 1;
     const textLines = change.text.split(/\r?\n/).length;
-    console.log("/------ Start Handling Change ------/");
-    console.log("startLine:", startLine, "endLine:", endLine, "textLines:", textLines);
+    // console.log("/------ Start Handling Change ------/");
+    // console.log("startLine:", startLine, "endLine:", endLine, "textLines:", textLines);
 
     const getTextFromLineRange = (start: number, end: number) => {
       const range = new vscode.Range(
@@ -188,8 +190,8 @@ export function activate(context: vscode.ExtensionContext) {
     updateMapLastNext();
     totalLines = editorTotalLines;
 
-    console.log("changed range:", xLine, yLine, newYLine);
-    console.log("Changed text:\n" + raw);
+    // console.log("changed range:", xLine, yLine, newYLine);
+    // console.log("Changed text:\n" + raw);
     // console.log("Now map:");
     // for (let i = 1; i <= totalLines; i++) {
     //   console.log(i, map[i], mapLast[i], mapNext[i]);
@@ -241,7 +243,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Update when text changes in the current document
   vscode.workspace.onDidChangeTextDocument(
     (e) => {
-      if (e.document.languageId === "notesaw" && panel?.visible) {
+      if (e.document.languageId === "markdown" && panel?.visible) {
         // console.log("Document changed, updating preview...");
         const editor = vscode.window.activeTextEditor;
         if (editor) {
@@ -258,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Update when the active editor changes to keep preview in sync
   vscode.window.onDidChangeActiveTextEditor(
     (editor) => {
-      if (editor && editor.document.languageId === "notesaw" && panel?.visible) {
+      if (editor && editor.document.languageId === "markdown" && panel?.visible) {
         handleDocChange(editor, editor.document);
         handleCursorLineChange(editor.selection.active.line);
         handleVisibleRangeChange(editor.visibleRanges[0]);
@@ -270,7 +272,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Listen for selection changes to sync cursor position with preview
   vscode.window.onDidChangeTextEditorSelection((e) => {
-    if (e.textEditor.document.languageId !== "notesaw") return;
+    if (e.textEditor.document.languageId !== "markdown") return;
 
     const line = e.selections[0].active.line;
     if (line !== activeCursorLine) {
@@ -280,7 +282,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Listen for scrolling to sync visible range with preview
   vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
-    if (e.textEditor.document.languageId !== "notesaw") return;
+    if (e.textEditor.document.languageId !== "markdown") return;
 
     const range = e.visibleRanges[0];
     if (
@@ -302,10 +304,13 @@ export function activate(context: vscode.ExtensionContext) {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
         // Verify the document is a Notesaw file
-        if (editor.document.languageId !== "notesaw") {
+        if (editor.document.languageId !== "markdown") {
           vscode.window.showErrorMessage("Please open a Notesaw file.");
           return;
         }
+
+        const currentFileUri = editor.document.uri;
+        const currentDirUri = vscode.Uri.joinPath(currentFileUri, "..");
 
         // Create the preview panel if it doesn't exist
         if (!panel) {
@@ -315,7 +320,10 @@ export function activate(context: vscode.ExtensionContext) {
             "Notesaw", // Panel title
             { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, // Show beside the current editor
             {
-              localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "assets")], // Security: restrict resources to assets folder
+              localResourceRoots: [
+                vscode.Uri.joinPath(context.extensionUri, "assets"), // Security: restrict resources to assets folder
+                currentDirUri, // user's current directory
+              ],
               enableScripts: true, // Allow JavaScript in the webview for interactivity
             }
           );
@@ -352,6 +360,11 @@ export function activate(context: vscode.ExtensionContext) {
         const webviewScriptUri = panel.webview.asWebviewUri(
           vscode.Uri.joinPath(context.extensionUri, "assets", "script", "webview-script.js")
         );
+
+        // image from the user's current workspace
+        const workspaceUri = panel.webview.asWebviewUri(currentDirUri);
+
+        setWorkspaceUri(workspaceUri.toString());
 
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(

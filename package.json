@@ -13,23 +13,11 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "languages": [
-      {
-        "id": "notesaw",
-        "extensions": [
-          ".note"
-        ],
-        "aliases": [
-          "Notesaw",
-          "note"
-        ]
-      }
-    ],
     "menus": {
       "editor/title": [
         {
           "command": "notesaw.showPreview",
-          "when": "editorLangId == notesaw",
+          "when": "editorLangId == markdown",
           "group": "navigation"
         }
       ]
@@ -53,6 +41,7 @@
     "convert": "tsc -p ./ && node ./out/convert.js"
   },
   "dependencies": {
+    "@pondorasti/remark-img-links": "^1.0.8",
     "feather-icons": "^4.29.2",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",

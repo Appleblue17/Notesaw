@@ -7,10 +7,12 @@
 import type { Root as HastRoot } from "hast";
 import type { Root as MdastRoot } from "mdast";
 import { unified } from "unified";
+import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
 import rehypeDocument from "rehype-document";
 import rehypeStringify from "rehype-stringify";
+import { workspaceUri } from "./env.ts";
 
 import fs from "fs";
 import prettyPrint from "./utils/prettyprint.ts";
@@ -47,7 +49,7 @@ export async function noteProcessInit(
       meta: [
         {
           "http-equiv": "Content-Security-Policy",
-          content: `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; script-src ${cspSource}`,
+          content: `default-src 'none'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; script-src ${cspSource}; img-src ${cspSource};`,
         },
       ],
     })
@@ -73,21 +75,17 @@ export async function noteProcess(
   fatherId: number,
   labelRoot: boolean
 ): Promise<String> {
+  console.log("workspaceUri:", workspaceUri);
   // Create a single unified processor with all plugins
   const html = await unified()
     .use(noteParsePlugin)
     .use(noteBoxParsePlugin)
+    .use(remarkImgLinks, { absolutePath: workspaceUri + "/" })
     .use(remarkRehype)
     .use(rehypeKatex)
     .use(noteTransformPlugin, baseLine, fatherId, labelRoot)
     .use(rehypeStringify)
     .process(doc);
-
-  // const mdast = processor.parse(doc) as MdastRoot;
-  // const hast = (await processor.run(mdast)) as HastRoot;
-
-  // // Generate the final HTML string
-  // const html = String(processor.stringify(hast));
 
   return String(html);
 }

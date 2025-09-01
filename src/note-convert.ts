@@ -5,6 +5,7 @@
  */
 
 import { unified } from "unified";
+import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
 import rehypeStringify from "rehype-stringify";
@@ -24,6 +25,7 @@ import {
 import rehypeFormat from "rehype-format";
 import rehypeDocument from "rehype-document";
 import { NoteNode } from "./index.ts";
+import { workspaceUri, setWorkspaceUri } from "./env.ts";
 
 /**
  * Processes a note document and converts it to HTML
@@ -57,6 +59,9 @@ export default async function noteProcessConvert(
   const totalLines = doc.split("\n").length;
   extendMapArray(totalLines);
 
+  setWorkspaceUri(process.cwd());
+  console.log("workspaceUri:", workspaceUri);
+
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
     .use(noteBoxParsePlugin) // Custom parser processes box syntax
@@ -64,6 +69,7 @@ export default async function noteProcessConvert(
     //   console.log("After remarkParse");
     //   console.log(prettyPrint(ast)); // Debug intermediate tree
     // })
+    .use(remarkImgLinks, { absolutePath: workspaceUri + "/" })
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(rehypeKatex) // Add KaTeX support
     .use(noteTransformPlugin, 0, 0, true) // Transform custom AST

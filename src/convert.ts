@@ -1,7 +1,7 @@
 import noteProcess from "./note-convert.ts";
 import fs from "fs/promises";
 
-const doc: string = await fs.readFile("./note_test/test.note", "utf-8");
+const doc: string = await fs.readFile("./note_test/tmp.md", "utf-8");
 const res: string = await noteProcess(
   doc,
   "./assets/styles/note.css",
