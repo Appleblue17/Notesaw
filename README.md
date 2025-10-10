@@ -1,6 +1,6 @@
-[![Super-Linter](https://github.com/Appleblue17/Notesaw/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
-
 # Notesaw Preview
+
+[![Super-Linter](https://github.com/Appleblue17/Notesaw/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
 _Notesaw_ is an extention of Markdown that is primitively designed for note-taking and documentation, by adding additional features including programming-like block syntax.
 

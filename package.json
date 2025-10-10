@@ -1,16 +1,29 @@
 {
-  "name": "notesaw_preview",
-  "description": "none",
-  "version": "0.0.1",
+  "name": "notesaw-preview",
+  "displayName": "Notesaw Preview",
+  "description": "An extension markup language of Markdown designed for note-taking and documentation.",
+  "version": "0.1.0",
   "publisher": "Appleblue17",
   "engines": {
     "vscode": "^1.100.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "note",
+    "preview"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Appleblue17/Notesaw"
   },
   "type": "module",
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "menus": {
@@ -32,17 +45,15 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "pnpm run compile && pnpm run lint",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
     "convert": "tsc -p ./ && node ./out/convert.js"
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
-    "feather-icons": "^4.29.2",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
     "rehype-katex": "^7.0.1",
@@ -51,22 +62,21 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
-    "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
-    "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
     "@types/vscode": "^1.103.0",
+    "@types/mocha": "^10.0.10",
+    "typescript": "^5.9.2",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
     "@typescript-eslint/parser": "^8.41.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2"
+    "eslint": "^9.34.0"
   }
 }

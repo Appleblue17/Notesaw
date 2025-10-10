@@ -21,7 +21,6 @@ import {
   mapFather,
   extendMapArray,
 } from "./transformer.ts";
-import { Uri } from "vscode";
 import { setWorkspaceUri } from "./env.ts";
 
 let totalLines = 0;

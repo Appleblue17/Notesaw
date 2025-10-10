@@ -6,7 +6,6 @@ import remarkMath from "remark-math";
 import type { NoteNode } from "./index.d.ts";
 import { CONTINUE, visit } from "unist-util-visit";
 import prettyPrint from "./utils/prettyprint.ts";
-import remarkStringify from "remark-stringify";
 
 const abbrMap: Record<string, string> = {
   thm: "theorem",
