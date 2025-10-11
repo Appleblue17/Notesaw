@@ -160,8 +160,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     const id: number = Number(node.properties.id);
     const depth = mapDepth[id];
 
-    // console.log("HELLO", node);
-
     // Use data property to store custom attributes
 
     let currentLine = startLine;
@@ -220,7 +218,7 @@ function handleInlineBlock(node: Element, className: string) {
     tagName: "svg",
     properties: {
       class: "block-icon",
-      style: `stroke: ${hslColor};`,
+      style: `stroke: ${hslColor}; fill: transparent`,
     },
     children: [
       {
@@ -292,7 +290,7 @@ function handleBlock(node: Element, className: string) {
     tagName: "svg",
     properties: {
       class: "block-icon",
-      style: `stroke: ${hslColor};`,
+      style: `stroke: ${hslColor}; fill: transparent`,
     },
     children: [
       {

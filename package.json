@@ -41,6 +41,18 @@
         "title": "Start Notesaw preview to the Side",
         "category": "Notesaw",
         "icon": "$(preview)"
+      },
+      {
+        "command": "notesaw.export_to_html",
+        "title": "Export current Notesaw file to raw HTML (styles not included)",
+        "category": "Notesaw",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "notesaw.export_to_pdf",
+        "title": "Export current Notesaw file to PDF",
+        "category": "Notesaw",
+        "icon": "$(file-pdf)"
       }
     ]
   },
@@ -54,6 +66,7 @@
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
+    "puppeteer": "^24.24.0",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
     "rehype-katex": "^7.0.1",
@@ -68,15 +81,23 @@
   "devDependencies": {
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
+    "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.103.0",
-    "@types/mocha": "^10.0.10",
-    "typescript": "^5.9.2",
-    "@typescript-eslint/eslint-plugin": "^8.41.0",
-    "@typescript-eslint/parser": "^8.41.0",
+    "@types/vscode": "^1.105.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.34.0"
+    "eslint": "^9.37.0",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "puppeteer"
+    ],
+    "onlyBuiltDependencies": [
+      "puppeteer"
+    ]
   }
 }
