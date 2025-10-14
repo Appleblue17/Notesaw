@@ -54,7 +54,72 @@
         "category": "Notesaw",
         "icon": "$(file-pdf)"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Notesaw Preview",
+      "properties": {
+        "notesaw.puppeteerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Chromium or Chrome executable to be used by Puppeteer. Leave empty to use the bundled Chromium."
+        },
+        "notesaw.pdfOptions.format": {
+          "type": "string",
+          "default": "A4",
+          "description": "The format of the PDF to be generated. See Puppeteer docs for more details.",
+          "markdownDescription": "The format of the PDF to be generated. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for more details."
+        },
+        "notesaw.pdfOptions.landscape": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to export the PDF in landscape orientation."
+        },
+        "notesaw.pdfOptions.margin": {
+          "type": "object",
+          "description": "PDF page margins. Each value can be a string with units (e.g. '20mm', '1cm', '10px'). See Puppeteer docs for more details.",
+          "markdownDescription": "PDF page margins. Each value can be a string with units (e.g. '20mm', '1cm', '10px'). See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for more details.",
+          "properties": {
+            "top": {
+              "type": "string",
+              "default": "20mm",
+              "description": "Top margin."
+            },
+            "bottom": {
+              "type": "string",
+              "default": "20mm",
+              "description": "Bottom margin."
+            },
+            "left": {
+              "type": "string",
+              "default": "15mm",
+              "description": "Left margin."
+            },
+            "right": {
+              "type": "string",
+              "default": "15mm",
+              "description": "Right margin."
+            }
+          }
+        },
+        "notesaw.pdfOptions.displayHeaderFooter": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to display header and footer in the PDF."
+        },
+        "notesaw.pdfOptions.headerTemplate": {
+          "type": "string",
+          "default": "",
+          "description": "Only works if displayHeaderFooter is true. HTML template for the PDF header, set empty to omit. See Puppeteer docs for supported variables.",
+          "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF header, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
+        },
+        "notesaw.pdfOptions.footerTemplate": {
+          "type": "string",
+          "default": "",
+          "description": "Only works if displayHeaderFooter is true. HTML template for the PDF footer, set empty to omit. See Puppeteer docs for supported variables.",
+          "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF footer, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",

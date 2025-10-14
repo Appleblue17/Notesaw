@@ -418,6 +418,21 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
+        // 获取用户配置
+        const config = vscode.workspace.getConfiguration("notesaw");
+        const pdfOptions = config.get<any>("pdfOptions") || {};
+        const format = pdfOptions.format || "A4";
+        const landscape = pdfOptions.landscape || false;
+        const margin = pdfOptions.margin || {
+          top: "10mm",
+          bottom: "10mm",
+          left: "15mm",
+          right: "15mm",
+        };
+        const displayHeaderFooter = pdfOptions.displayHeaderFooter || false;
+        const headerTemplate = pdfOptions.headerTemplate || "<div></div>";
+        const footerTemplate = pdfOptions.footerTemplate || "<div></div>";
+
         const noteCssPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
@@ -453,7 +468,6 @@ export function activate(context: vscode.ExtensionContext) {
             try {
               progress.report({ message: "Converting Notesaw to HTML...", increment: 10 });
 
-              const editor = vscode.window.activeTextEditor;
               let folderPath = undefined;
               if (editor) {
                 const absPath = editor.document.uri.fsPath;
@@ -497,20 +511,18 @@ export function activate(context: vscode.ExtensionContext) {
 
               progress.report({ message: "Rendering PDF...", increment: 20 });
               await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
-              await page.addStyleTag({
-                path: noteCssPath,
-              });
-              await page.addStyleTag({
-                path: ghmCssPath,
-              });
-              await page.addStyleTag({
-                path: katexCssPath,
-              });
+              await page.addStyleTag({ path: noteCssPath });
+              await page.addStyleTag({ path: ghmCssPath });
+              await page.addStyleTag({ path: katexCssPath });
 
               await page.pdf({
                 path: pdfPath,
-                format: "A4",
-                margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
+                format,
+                landscape,
+                margin,
+                displayHeaderFooter,
+                headerTemplate,
+                footerTemplate,
               });
               await browser.close();
 
