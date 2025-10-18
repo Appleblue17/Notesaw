@@ -58,6 +58,18 @@
     "configuration": {
       "title": "Notesaw Preview",
       "properties": {
+        "notesaw.theme": {
+          "type": "string",
+          "enum": [
+            "light",
+            "dark",
+            "follow-vscode",
+            "follow-system"
+          ],
+          "default": "follow-vscode",
+          "description": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme.",
+          "markdownDescription": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme."
+        },
         "notesaw.puppeteerPath": {
           "type": "string",
           "default": "",

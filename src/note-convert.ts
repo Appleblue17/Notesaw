@@ -52,13 +52,13 @@ export default async function noteProcessConvert(
   ghmCssPath: string | undefined,
   katexCssPath: string | undefined,
   workspacePath: string | undefined,
-  featherSvgPath: string
+  featherSvgPath: string,
+  theme: "light" | "dark" | undefined = "light"
 ): Promise<string> {
   const totalLines = doc.split("\n").length;
   extendMapArray(totalLines);
 
   const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter((uri) => uri !== undefined);
-  console.log("workspacePath", workspacePath + "/");
 
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
@@ -96,6 +96,12 @@ export default async function noteProcessConvert(
   const bodyCloseTag = "</body>";
   const svgTag = `<div style="display:none">${svgContent}</div>\n`;
 
-  const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+  let finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+
+  if (theme) {
+    // Add data-theme attribute to <body> tag
+    finalHtml = finalHtml.replace(/<body([^>]*)>/, `<body$1 data-theme="${theme}">`);
+  }
+
   return finalHtml;
 }

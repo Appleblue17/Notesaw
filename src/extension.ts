@@ -368,6 +368,19 @@ export function activate(context: vscode.ExtensionContext) {
 
         setWorkspaceUri(workspaceUri.toString());
 
+        const prefTheme =
+          vscode.workspace.getConfiguration("notesaw").get<string>("theme") || "follow-system";
+        let theme: "light" | "dark" | undefined = undefined;
+        if (prefTheme === "follow-vscode") {
+          // Apply VSCode theme styles
+          theme =
+            vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? "dark" : "light";
+        } else if (prefTheme === "light" || prefTheme === "dark") {
+          theme = prefTheme;
+        } else {
+          theme = undefined;
+        }
+
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(
           noteCssUri.toString(),
@@ -376,7 +389,8 @@ export function activate(context: vscode.ExtensionContext) {
           featherSvgPath,
           morphdomUri.toString(),
           webviewScriptUri.toString(),
-          panel.webview.cspSource
+          panel.webview.cspSource,
+          theme
         );
         panel.webview.html = resHtml;
         handleDocChange(editor, editor.document);
@@ -481,7 +495,7 @@ export function activate(context: vscode.ExtensionContext) {
                 editor.document.getText(),
                 undefined,
                 undefined,
-                undefined,
+                katexCssPath,
                 folderPath,
                 featherSvgPath
               );
@@ -513,7 +527,6 @@ export function activate(context: vscode.ExtensionContext) {
               await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
               await page.addStyleTag({ path: noteCssPath });
               await page.addStyleTag({ path: ghmCssPath });
-              await page.addStyleTag({ path: katexCssPath });
 
               await page.pdf({
                 path: pdfPath,
