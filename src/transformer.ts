@@ -127,6 +127,7 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     if (node.tagName === "ul") return false;
     if (node.tagName === "ol") return false;
     if (node.tagName === "p") return false;
+    if (node.tagName === "pre") return false;
     if (node.tagName === "table") return false;
     if (typeof node.properties.class === "string") {
       if (node.properties.class.includes("block-container")) return false;
@@ -137,7 +138,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
   };
 
   visit(tree, "element", (node: Element) => {
-    // console.log("HI", node);
     if (node.type !== "element" || !node.position) return SKIP;
     if (!isValidElement(node)) return CONTINUE;
 
