@@ -66,6 +66,8 @@ const iconMap: Record<string, string> = {
   code: "code",
   important: "star",
   remember: "star",
+  summary: "star",
+  method: "tool",
 };
 
 export let counter = 0;
@@ -119,7 +121,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     if (!labelRoot && node.properties.class === "markdown-body") return false; // skip root
     if (typeof node.properties.class === "string" && node.properties.class.includes("block-body"))
       return false;
-
     return true;
   };
   const continueTransform = (node: Element) => {
@@ -133,7 +134,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
       if (node.properties.class.includes("block-container")) return false;
       if (node.properties.class.includes("box")) return false;
     }
-
     return true;
   };
 
