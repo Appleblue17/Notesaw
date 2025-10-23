@@ -8,6 +8,7 @@ import { unified } from "unified";
 import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
+import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
 
 import fs from "fs";
@@ -75,6 +76,7 @@ export default async function noteProcessConvert(
     //   console.log("After remarkRehype");
     //   console.log(prettyPrint(ast)); // Debug after custom compiler
     // })
+    .use(rehypeStarryNight)
     .use(rehypeDocument, {
       css: cssList,
     })

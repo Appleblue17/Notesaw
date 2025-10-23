@@ -435,7 +435,9 @@ export function activate(context: vscode.ExtensionContext) {
         // 获取用户配置
         const config = vscode.workspace.getConfiguration("notesaw");
         const pdfOptions = config.get<any>("pdfOptions") || {};
+        const puppeteerPath = pdfOptions.puppeteerPath || "";
         const format = pdfOptions.format || "A4";
+        const forceWhiteBackground = pdfOptions.forceWhiteBackground || false;
         const landscape = pdfOptions.landscape || false;
         const margin = pdfOptions.margin || {
           top: "10mm",
@@ -515,6 +517,7 @@ export function activate(context: vscode.ExtensionContext) {
               progress.report({ message: "Launching browser...", increment: 20 });
               const browser = await puppeteer.launch({
                 headless: true,
+                executablePath: puppeteerPath || undefined,
                 args: [
                   "--no-sandbox",
                   "--disable-setuid-sandbox",
@@ -536,6 +539,8 @@ export function activate(context: vscode.ExtensionContext) {
                 displayHeaderFooter,
                 headerTemplate,
                 footerTemplate,
+                omitBackground: !forceWhiteBackground,
+                printBackground: !forceWhiteBackground,
               });
               await browser.close();
 

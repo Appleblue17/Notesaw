@@ -11,6 +11,7 @@ import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
 import rehypeDocument from "rehype-document";
+import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
 import { workspaceUri } from "./env.ts";
 
@@ -89,6 +90,7 @@ export async function noteProcess(
     .use(remarkRehype)
     .use(rehypeKatex)
     .use(noteTransformPlugin, baseLine, fatherId, labelRoot)
+    .use(rehypeStarryNight)
     .use(rehypeStringify)
     .process(doc);
 

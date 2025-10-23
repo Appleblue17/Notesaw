@@ -1368,3 +1368,7 @@
 .markdown-body .highlight pre:has(+ .zeroclipboard-container) {
   min-height: 52px;
 }
+
+.markdown-body code {
+  color: var(--fgColor-default);
+}
