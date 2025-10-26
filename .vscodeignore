@@ -1,1 +1,8 @@
 .env
+note_test/
+src/
+scripts/
+
+tsconfig.json
+eslint.config.mjs
+output.html

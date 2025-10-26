@@ -445,6 +445,7 @@ export function activate(context: vscode.ExtensionContext) {
           left: "15mm",
           right: "15mm",
         };
+        const scale = pdfOptions.scale || 1.0;
         const displayHeaderFooter = pdfOptions.displayHeaderFooter || false;
         const headerTemplate = pdfOptions.headerTemplate || "<div></div>";
         const footerTemplate = pdfOptions.footerTemplate || "<div></div>";
@@ -515,15 +516,24 @@ export function activate(context: vscode.ExtensionContext) {
 
               // 2. [PDF Generation] Launch browser and load HTML
               progress.report({ message: "Launching browser...", increment: 20 });
-              const browser = await puppeteer.launch({
-                headless: true,
-                executablePath: puppeteerPath || undefined,
-                args: [
-                  "--no-sandbox",
-                  "--disable-setuid-sandbox",
-                  "--allow-file-access-from-files",
-                ],
-              });
+
+              let browser;
+              try {
+                browser = await puppeteer.launch({
+                  headless: true,
+                  executablePath: puppeteerPath || undefined,
+                  args: [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--allow-file-access-from-files",
+                  ],
+                });
+              } catch (e) {
+                vscode.window.showErrorMessage(
+                  "Launch failed, probably because Chrome executable is not found. Please refer to [Get Started - Exporting](https://github.com/Appleblue17/Notesaw?tab=readme-ov-file#get-started) to install and configure it."
+                );
+                throw e;
+              }
               const page = await browser.newPage();
 
               progress.report({ message: "Rendering PDF...", increment: 20 });
@@ -539,6 +549,7 @@ export function activate(context: vscode.ExtensionContext) {
                 displayHeaderFooter,
                 headerTemplate,
                 footerTemplate,
+                scale,
                 omitBackground: !forceWhiteBackground,
                 printBackground: !forceWhiteBackground,
               });

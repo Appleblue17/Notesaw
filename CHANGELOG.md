@@ -6,6 +6,13 @@
 
 - Initial release
 
+### Features
+
+- Basic Notesaw syntax support (block, inline block, box)
+- Real-time rendering
+- Editor-to-preview scroll synchronization
+- Partial rendering for improved performance
+
 ## [0.2.0] - 2025-10-23
 
 ### Features
@@ -24,9 +31,10 @@
 
 - Add new block types: `remember`, `summary`, and `method`.
 
-### Features
+## [0.2.1] - 2025-10-25
 
-- Basic Notesaw syntax support (block, inline block, box)
-- Real-time rendering
-- Editor-to-preview scroll synchronization
-- Partial rendering for improved performance
+### Enhancements
+
+- Add `scale` configuration for PDF exporting.
+- Enhance guidance for downloading _Chrome for Testing_ to enable Puppeteer's PDF exporting functionality.
+- Optimize Extension package size.

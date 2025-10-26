@@ -50,7 +50,10 @@ _Notesaw_ is downward compatible with Markdown, so you may also use it as a drop
 
 You can export your Notesaw document to HTML or PDF format. To do this, open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and search for "Notesaw: Export to HTML" or "Notesaw: Export to PDF". The exported file will be saved in the same directory as your Notesaw document.
 
-_Notesaw_ Preview uses [Puppeteer](https://pptr.dev/) to generate PDF files, which requires a working installation of Chromium. If you encounter any issues during the export process, please ensure that Chromium is properly installed on your system.
+_Notesaw_ Preview uses [Puppeteer](https://pptr.dev/) to generate PDF files, which requires a working installation of *Chrome for Testing*. 
+If you haven't downloaded one, we recommend manually downloading and installing *chrome* from [Official Releases](https://googlechromelabs.github.io/chrome-for-testing/). Find `chrome` binary that matches your operating system and architecture, download from the corresponding URL, and extract it to a desired location. You should be able to find the `chrome` binary in the extracted folder, and fill its absolute path to the `Puppeteer Path` setting in the extension settings.
+
+You can also get *Chrome for Testing* via npm. For more details, please refer to [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing) and [Puppeteer Documentation](https://pptr.dev/guides/installation).
 
 ### Extension Settings
 

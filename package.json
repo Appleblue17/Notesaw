@@ -2,7 +2,7 @@
   "name": "notesaw-preview",
   "displayName": "Notesaw Preview",
   "description": "An extension markup language of Markdown designed for note-taking and documentation.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "Appleblue17",
   "engines": {
     "vscode": "^1.105.0"
@@ -75,7 +75,7 @@
           "order": 100,
           "type": "string",
           "default": "",
-          "description": "Path to the Chromium or Chrome executable to be used by Puppeteer. Leave empty to use the bundled Chromium."
+          "description": "Path to the Chrome executable to be used by Puppeteer. Leave empty to use the package-bundled Chrome."
         },
         "notesaw.pdfOptions.format": {
           "order": 105,
@@ -125,6 +125,14 @@
             }
           }
         },
+        "notesaw.pdfOptions.scale": {
+          "order": 123,
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 2,
+          "description": "Scales the rendering of the web page, including the font size. Must be between 0.1 and 2."
+        },
         "notesaw.pdfOptions.displayHeaderFooter": {
           "order": 125,
           "type": "boolean",
@@ -158,7 +166,6 @@
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
-    "@vscode/vsce": "^3.6.2",
     "puppeteer": "^24.24.0",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
@@ -173,6 +180,7 @@
     "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.6.2",
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
     "@types/mocha": "^10.0.10",
@@ -185,13 +193,5 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.37.0",
     "typescript": "^5.9.3"
-  },
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "puppeteer"
-    ],
-    "onlyBuiltDependencies": [
-      "puppeteer"
-    ]
   }
 }
