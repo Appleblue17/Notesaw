@@ -2,7 +2,7 @@
   "name": "notesaw-preview",
   "displayName": "Notesaw Preview",
   "description": "An extension markup language of Markdown designed for note-taking and documentation.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "Appleblue17",
   "engines": {
     "vscode": "^1.105.0"
