@@ -46,9 +46,15 @@ _Notesaw_ is downward compatible with Markdown, so you may also use it as a drop
 3. Click the preview button in the top-right corner of the editor, or use the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and search for "Notesaw: Show Preview". The button should be next to the native Markdown Preview button.
 4. Start writing and enjoy the live preview!
 
-<!-- ## Extension Settings
+### Exporting
 
-Nothing for now... -->
+You can export your Notesaw document to HTML or PDF format. To do this, open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and search for "Notesaw: Export to HTML" or "Notesaw: Export to PDF". The exported file will be saved in the same directory as your Notesaw document.
+
+_Notesaw_ Preview uses [Puppeteer](https://pptr.dev/) to generate PDF files, which requires a working installation of Chromium. If you encounter any issues during the export process, please ensure that Chromium is properly installed on your system.
+
+### Extension Settings
+
+You can customize the behavior of _Notesaw Preview_ through the VSCode settings. Press `Ctrl + ,` (or `Cmd + ,` on macOS) to open the settings, and search for "Notesaw" to find the available options.
 
 ## Notesaw Syntax
 

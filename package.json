@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "Appleblue17",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.105.0"
   },
   "license": "MIT",
   "keywords": [
@@ -158,6 +158,7 @@
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
+    "@vscode/vsce": "^3.6.2",
     "puppeteer": "^24.24.0",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
