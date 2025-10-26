@@ -432,7 +432,7 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        // 获取用户配置
+        // Get user configuration
         const config = vscode.workspace.getConfiguration("notesaw");
         const pdfOptions = config.get<any>("pdfOptions") || {};
         const puppeteerPath = pdfOptions.puppeteerPath || "";
@@ -505,7 +505,7 @@ export function activate(context: vscode.ExtensionContext) {
               // Use Puppeteer to convert HTML to PDF
               const pdfPath = editor.document.uri.fsPath.replace(/\.md$/, ".pdf");
 
-              // 1. Save HTML to a temporary file
+              // 1. [PDF Generation] Save HTML to a temporary file
               progress.report({ message: "Exporting to temporary HTML...", increment: 30 });
               const htmlPath = editor.document.uri.fsPath.replace(/\.md$/, ".export.html");
               await vscode.workspace.fs.writeFile(
@@ -513,7 +513,7 @@ export function activate(context: vscode.ExtensionContext) {
                 new TextEncoder().encode(html)
               );
 
-              // 2. Puppeteer loads local HTML
+              // 2. [PDF Generation] Launch browser and load HTML
               progress.report({ message: "Launching browser...", increment: 20 });
               const browser = await puppeteer.launch({
                 headless: true,
@@ -544,7 +544,7 @@ export function activate(context: vscode.ExtensionContext) {
               });
               await browser.close();
 
-              // 3. Delete the temporary HTML file
+              // 3. [PDF Generation] Delete the temporary HTML file
               progress.report({ message: "Cleaning up...", increment: 20 });
               await vscode.workspace.fs.delete(vscode.Uri.file(htmlPath));
 

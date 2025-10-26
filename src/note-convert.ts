@@ -42,8 +42,8 @@ import { workspaceUri, setWorkspaceUri } from "./env.ts";
  *
  * @param doc - Raw note document content
  * @param noteCssPath - URI to the note CSS stylesheet
- * @param noteCssPath - URI to the GitHub Markdown CSS stylesheet
- * @param noteCssPath - URI to the KaTeX CSS stylesheet
+ * @param ghmCssPath - URI to the GitHub Markdown CSS stylesheet
+ * @param katexCssPath - URI to the KaTeX CSS stylesheet
  * @param featherSvgPath - Path to the Feather SVG icon file
  * @returns Promise resolving to the final HTML document
  */
