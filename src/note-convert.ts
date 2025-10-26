@@ -8,6 +8,7 @@ import { unified } from "unified";
 import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
+import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
 
 import fs from "fs";
@@ -40,27 +41,25 @@ import { workspaceUri, setWorkspaceUri } from "./env.ts";
  * 7. Injects SVG icons
  *
  * @param doc - Raw note document content
- * @param noteCssUri - URI to the note CSS stylesheet
- * @param ghmCssUri - URI to the GitHub Markdown CSS stylesheet
- * @param katexCssUri - URI to the KaTeX CSS stylesheet
+ * @param noteCssPath - URI to the note CSS stylesheet
+ * @param ghmCssPath - URI to the GitHub Markdown CSS stylesheet
+ * @param katexCssPath - URI to the KaTeX CSS stylesheet
  * @param featherSvgPath - Path to the Feather SVG icon file
- * @param morphdomUri - URI to the morphdom library
- * @param webviewScriptUri - URI to the webview script
- * @param cspSource - Content Security Policy source
  * @returns Promise resolving to the final HTML document
  */
 export default async function noteProcessConvert(
   doc: string,
-  noteCssUri: string,
-  ghmCssUri: string,
-  katexCssUri: string,
-  featherSvgPath: string
+  noteCssPath: string | undefined,
+  ghmCssPath: string | undefined,
+  katexCssPath: string | undefined,
+  workspacePath: string | undefined,
+  featherSvgPath: string,
+  theme: "light" | "dark" | undefined = "light"
 ): Promise<string> {
   const totalLines = doc.split("\n").length;
   extendMapArray(totalLines);
 
-  setWorkspaceUri(process.cwd());
-  console.log("workspaceUri:", workspaceUri);
+  const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter((uri) => uri !== undefined);
 
   const vfile = await unified()
     .use(noteParsePlugin) // Custom parser processes raw text first
@@ -69,7 +68,7 @@ export default async function noteProcessConvert(
     //   console.log("After remarkParse");
     //   console.log(prettyPrint(ast)); // Debug intermediate tree
     // })
-    .use(remarkImgLinks, { absolutePath: workspaceUri + "/" })
+    .use(remarkImgLinks, { absolutePath: workspacePath + "/" })
     .use(remarkRehype) // Convert Markdown parts to HTML
     .use(rehypeKatex) // Add KaTeX support
     .use(noteTransformPlugin, 0, 0, true) // Transform custom AST
@@ -77,8 +76,9 @@ export default async function noteProcessConvert(
     //   console.log("After remarkRehype");
     //   console.log(prettyPrint(ast)); // Debug after custom compiler
     // })
+    .use(rehypeStarryNight)
     .use(rehypeDocument, {
-      css: [noteCssUri, ghmCssUri, katexCssUri],
+      css: cssList,
     })
     .use(rehypeFormat)
     .use(rehypeStringify) // Stringify the final HTML
@@ -98,6 +98,12 @@ export default async function noteProcessConvert(
   const bodyCloseTag = "</body>";
   const svgTag = `<div style="display:none">${svgContent}</div>\n`;
 
-  const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+  let finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+
+  if (theme) {
+    // Add data-theme attribute to <body> tag
+    finalHtml = finalHtml.replace(/<body([^>]*)>/, `<body$1 data-theme="${theme}">`);
+  }
+
   return finalHtml;
 }

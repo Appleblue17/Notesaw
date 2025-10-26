@@ -11,6 +11,7 @@ import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
 import rehypeDocument from "rehype-document";
+import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
 import { workspaceUri } from "./env.ts";
 
@@ -38,7 +39,8 @@ export async function noteProcessInit(
   featherSvgPath: string,
   morphdomUri: string,
   webviewScriptUri: string,
-  cspSource: string
+  cspSource: string,
+  theme: "light" | "dark" | undefined
 ): Promise<string> {
   const vfile = await unified()
     .use(noteParsePlugin)
@@ -65,7 +67,11 @@ export async function noteProcessInit(
   const bodyCloseTag = "</body>";
   const svgTag = `<div style="display:none">${svgContent}</div>\n`;
 
-  const finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+  let finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
+  if (theme) {
+    // Add data-theme attribute to <body> tag
+    finalHtml = finalHtml.replace(/<body([^>]*)>/, `<body$1 data-theme="${theme}">`);
+  }
   return finalHtml;
 }
 
@@ -84,6 +90,7 @@ export async function noteProcess(
     .use(remarkRehype)
     .use(rehypeKatex)
     .use(noteTransformPlugin, baseLine, fatherId, labelRoot)
+    .use(rehypeStarryNight)
     .use(rehypeStringify)
     .process(doc);
 

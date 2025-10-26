@@ -66,6 +66,8 @@ const iconMap: Record<string, string> = {
   code: "code",
   important: "star",
   remember: "star",
+  summary: "star",
+  method: "tool",
 };
 
 export let counter = 0;
@@ -119,7 +121,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     if (!labelRoot && node.properties.class === "markdown-body") return false; // skip root
     if (typeof node.properties.class === "string" && node.properties.class.includes("block-body"))
       return false;
-
     return true;
   };
   const continueTransform = (node: Element) => {
@@ -127,17 +128,16 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     if (node.tagName === "ul") return false;
     if (node.tagName === "ol") return false;
     if (node.tagName === "p") return false;
+    if (node.tagName === "pre") return false;
     if (node.tagName === "table") return false;
     if (typeof node.properties.class === "string") {
       if (node.properties.class.includes("block-container")) return false;
       if (node.properties.class.includes("box")) return false;
     }
-
     return true;
   };
 
   visit(tree, "element", (node: Element) => {
-    // console.log("HI", node);
     if (node.type !== "element" || !node.position) return SKIP;
     if (!isValidElement(node)) return CONTINUE;
 
@@ -159,8 +159,6 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
     }
     const id: number = Number(node.properties.id);
     const depth = mapDepth[id];
-
-    // console.log("HELLO", node);
 
     // Use data property to store custom attributes
 
@@ -220,7 +218,7 @@ function handleInlineBlock(node: Element, className: string) {
     tagName: "svg",
     properties: {
       class: "block-icon",
-      style: `stroke: ${hslColor};`,
+      style: `stroke: ${hslColor}; fill: transparent`,
     },
     children: [
       {
@@ -292,7 +290,7 @@ function handleBlock(node: Element, className: string) {
     tagName: "svg",
     properties: {
       class: "block-icon",
-      style: `stroke: ${hslColor};`,
+      style: `stroke: ${hslColor}; fill: transparent`,
     },
     children: [
       {

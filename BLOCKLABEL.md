@@ -29,6 +29,9 @@ _Notesaw_ uses icon from [Feature Icons](https://feathericons.com/). Reference t
 |  algorithm  |        cpu        |
 |    code     |       code        |
 |  important  |       star        |
+|  remember   |       star        |
+|   summary   |       star        |
+|   method    |       tool        |
 
 ### Abbreviations
 

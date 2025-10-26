@@ -10,7 +10,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
+import * as path from "path";
 import { noteProcessInit, noteProcess } from "./note-extention.ts";
+import noteProcessConvert from "./note-convert.ts";
 import {
   counter,
   setCounter,
@@ -22,6 +24,7 @@ import {
   extendMapArray,
 } from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
+import puppeteer from "puppeteer";
 
 let totalLines = 0;
 
@@ -365,6 +368,19 @@ export function activate(context: vscode.ExtensionContext) {
 
         setWorkspaceUri(workspaceUri.toString());
 
+        const prefTheme =
+          vscode.workspace.getConfiguration("notesaw").get<string>("theme") || "follow-system";
+        let theme: "light" | "dark" | undefined = undefined;
+        if (prefTheme === "follow-vscode") {
+          // Apply VSCode theme styles
+          theme =
+            vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? "dark" : "light";
+        } else if (prefTheme === "light" || prefTheme === "dark") {
+          theme = prefTheme;
+        } else {
+          theme = undefined;
+        }
+
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(
           noteCssUri.toString(),
@@ -373,10 +389,172 @@ export function activate(context: vscode.ExtensionContext) {
           featherSvgPath,
           morphdomUri.toString(),
           webviewScriptUri.toString(),
-          panel.webview.cspSource
+          panel.webview.cspSource,
+          theme
         );
         panel.webview.html = resHtml;
         handleDocChange(editor, editor.document);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("notesaw.export_to_html", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        // Verify the document is a Notesaw file
+        if (editor.document.languageId !== "markdown") {
+          vscode.window.showErrorMessage("Please open a Notesaw file.");
+          return;
+        }
+        vscode.window.showInformationMessage("Start exporting Notesaw file to raw HTML...");
+
+        const html = await noteProcess(editor.document.getText(), 0, 0, true);
+        const savePath = editor.document.uri.fsPath.replace(/\.md$/, ".html");
+        const htmlUri = editor.document.uri.with({ path: savePath });
+        const writeData = new TextEncoder().encode(String(html));
+        await vscode.workspace.fs.writeFile(htmlUri, writeData);
+
+        // Notify the user of success, and display the path under the workspace root
+        let dispPath = vscode.workspace.asRelativePath(htmlUri);
+        vscode.window.showInformationMessage(`Exported to HTML: ${dispPath}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("notesaw.export_to_pdf", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        // Verify the document is a Notesaw file
+        if (editor.document.languageId !== "markdown") {
+          vscode.window.showErrorMessage("Please open a Notesaw file.");
+          return;
+        }
+
+        // Get user configuration
+        const config = vscode.workspace.getConfiguration("notesaw");
+        const pdfOptions = config.get<any>("pdfOptions") || {};
+        const puppeteerPath = pdfOptions.puppeteerPath || "";
+        const format = pdfOptions.format || "A4";
+        const forceWhiteBackground = pdfOptions.forceWhiteBackground || false;
+        const landscape = pdfOptions.landscape || false;
+        const margin = pdfOptions.margin || {
+          top: "10mm",
+          bottom: "10mm",
+          left: "15mm",
+          right: "15mm",
+        };
+        const displayHeaderFooter = pdfOptions.displayHeaderFooter || false;
+        const headerTemplate = pdfOptions.headerTemplate || "<div></div>";
+        const footerTemplate = pdfOptions.footerTemplate || "<div></div>";
+
+        const noteCssPath = vscode.Uri.joinPath(
+          context.extensionUri,
+          "assets",
+          "styles",
+          "note.css"
+        ).fsPath;
+        const ghmCssPath = vscode.Uri.joinPath(
+          context.extensionUri,
+          "assets",
+          "styles",
+          "github-markdown.css"
+        ).fsPath;
+        const katexCssPath = vscode.Uri.joinPath(
+          context.extensionUri,
+          "assets",
+          "styles",
+          "katex.min.css"
+        ).fsPath;
+        const featherSvgPath = vscode.Uri.joinPath(
+          context.extensionUri,
+          "assets",
+          "icon",
+          "feather-sprite.svg"
+        ).fsPath;
+
+        vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Exporting Notesaw to PDF",
+            cancellable: false,
+          },
+          async (progress) => {
+            try {
+              progress.report({ message: "Converting Notesaw to HTML...", increment: 10 });
+
+              let folderPath = undefined;
+              if (editor) {
+                const absPath = editor.document.uri.fsPath;
+                folderPath = "file://" + path.dirname(absPath);
+              } else {
+                vscode.window.showErrorMessage("Please open a Notesaw file.");
+                return;
+              }
+
+              const html = await noteProcessConvert(
+                editor.document.getText(),
+                undefined,
+                undefined,
+                katexCssPath,
+                folderPath,
+                featherSvgPath
+              );
+
+              // Use Puppeteer to convert HTML to PDF
+              const pdfPath = editor.document.uri.fsPath.replace(/\.md$/, ".pdf");
+
+              // 1. [PDF Generation] Save HTML to a temporary file
+              progress.report({ message: "Exporting to temporary HTML...", increment: 30 });
+              const htmlPath = editor.document.uri.fsPath.replace(/\.md$/, ".export.html");
+              await vscode.workspace.fs.writeFile(
+                vscode.Uri.file(htmlPath),
+                new TextEncoder().encode(html)
+              );
+
+              // 2. [PDF Generation] Launch browser and load HTML
+              progress.report({ message: "Launching browser...", increment: 20 });
+              const browser = await puppeteer.launch({
+                headless: true,
+                executablePath: puppeteerPath || undefined,
+                args: [
+                  "--no-sandbox",
+                  "--disable-setuid-sandbox",
+                  "--allow-file-access-from-files",
+                ],
+              });
+              const page = await browser.newPage();
+
+              progress.report({ message: "Rendering PDF...", increment: 20 });
+              await page.goto(`file://${htmlPath}`, { waitUntil: "networkidle0" });
+              await page.addStyleTag({ path: noteCssPath });
+              await page.addStyleTag({ path: ghmCssPath });
+
+              await page.pdf({
+                path: pdfPath,
+                format,
+                landscape,
+                margin,
+                displayHeaderFooter,
+                headerTemplate,
+                footerTemplate,
+                omitBackground: !forceWhiteBackground,
+                printBackground: !forceWhiteBackground,
+              });
+              await browser.close();
+
+              // 3. [PDF Generation] Delete the temporary HTML file
+              progress.report({ message: "Cleaning up...", increment: 20 });
+              await vscode.workspace.fs.delete(vscode.Uri.file(htmlPath));
+
+              vscode.window.showInformationMessage(`Exported to PDF: ${pdfPath}`);
+            } catch (err) {
+              console.error("Error generating PDF:", err);
+              vscode.window.showErrorMessage(`Failed to export to PDF: ${err}`);
+            }
+          }
+        );
       }
     })
   );

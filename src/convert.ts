@@ -7,6 +7,7 @@ const res: string = await noteProcess(
   "./assets/styles/note.css",
   "./assets/styles/github-markdown.css",
   "./assets/styles/katex.min.css",
+  undefined,
   "./assets/icon/feather-sprite.svg"
 );
 

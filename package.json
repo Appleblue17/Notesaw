@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "Appleblue17",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.105.0"
   },
   "license": "MIT",
   "keywords": [
@@ -41,8 +41,112 @@
         "title": "Start Notesaw preview to the Side",
         "category": "Notesaw",
         "icon": "$(preview)"
+      },
+      {
+        "command": "notesaw.export_to_html",
+        "title": "Export current Notesaw file to raw HTML (styles not included)",
+        "category": "Notesaw",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "notesaw.export_to_pdf",
+        "title": "Export current Notesaw file to PDF",
+        "category": "Notesaw",
+        "icon": "$(file-pdf)"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Notesaw Preview",
+      "properties": {
+        "notesaw.theme": {
+          "type": "string",
+          "order": 0,
+          "enum": [
+            "light",
+            "dark",
+            "follow-vscode",
+            "follow-system"
+          ],
+          "default": "follow-vscode",
+          "description": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme.",
+          "markdownDescription": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme."
+        },
+        "notesaw.pdfOptions.puppeteerPath": {
+          "order": 100,
+          "type": "string",
+          "default": "",
+          "description": "Path to the Chromium or Chrome executable to be used by Puppeteer. Leave empty to use the bundled Chromium."
+        },
+        "notesaw.pdfOptions.format": {
+          "order": 105,
+          "type": "string",
+          "default": "A4",
+          "description": "The format of the PDF to be generated. See Puppeteer docs for more details.",
+          "markdownDescription": "The format of the PDF to be generated. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for more details."
+        },
+        "notesaw.pdfOptions.forceWhiteBackground": {
+          "order": 110,
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to force a white background in the PDF, regardless of the theme used in the preview. If true, both omitBackground and printBackground in Puppeteer PDF options will be set to false.",
+          "markdownDescription": "Whether to force a white background in the PDF, regardless of the theme used in the preview. If true, both `omitBackground` and `printBackground` in Puppeteer PDF options will be set to false."
+        },
+        "notesaw.pdfOptions.landscape": {
+          "order": 115,
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to export the PDF in landscape orientation."
+        },
+        "notesaw.pdfOptions.margin": {
+          "order": 120,
+          "type": "object",
+          "description": "PDF page margins. Each value can be a string with units (e.g. '20mm', '1cm', '10px'). See Puppeteer docs for more details.",
+          "markdownDescription": "PDF page margins. Each value can be a string with units (e.g. '20mm', '1cm', '10px'). See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for more details.",
+          "properties": {
+            "top": {
+              "type": "string",
+              "default": "20mm",
+              "description": "Top margin."
+            },
+            "bottom": {
+              "type": "string",
+              "default": "20mm",
+              "description": "Bottom margin."
+            },
+            "left": {
+              "type": "string",
+              "default": "15mm",
+              "description": "Left margin."
+            },
+            "right": {
+              "type": "string",
+              "default": "15mm",
+              "description": "Right margin."
+            }
+          }
+        },
+        "notesaw.pdfOptions.displayHeaderFooter": {
+          "order": 125,
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to display header and footer in the PDF."
+        },
+        "notesaw.pdfOptions.headerTemplate": {
+          "order": 130,
+          "type": "string",
+          "default": "",
+          "description": "Only works if displayHeaderFooter is true. HTML template for the PDF header, set empty to omit. See Puppeteer docs for supported variables.",
+          "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF header, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
+        },
+        "notesaw.pdfOptions.footerTemplate": {
+          "order": 135,
+          "type": "string",
+          "default": "",
+          "description": "Only works if displayHeaderFooter is true. HTML template for the PDF footer, set empty to omit. See Puppeteer docs for supported variables.",
+          "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF footer, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -54,9 +158,12 @@
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
+    "@vscode/vsce": "^3.6.2",
+    "puppeteer": "^24.24.0",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
     "rehype-katex": "^7.0.1",
+    "rehype-starry-night": "^2.2.0",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
@@ -68,15 +175,23 @@
   "devDependencies": {
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
+    "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.103.0",
-    "@types/mocha": "^10.0.10",
-    "typescript": "^5.9.2",
-    "@typescript-eslint/eslint-plugin": "^8.41.0",
-    "@typescript-eslint/parser": "^8.41.0",
+    "@types/vscode": "^1.105.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.34.0"
+    "eslint": "^9.37.0",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "puppeteer"
+    ],
+    "onlyBuiltDependencies": [
+      "puppeteer"
+    ]
   }
 }
