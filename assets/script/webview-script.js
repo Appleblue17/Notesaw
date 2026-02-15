@@ -34,7 +34,7 @@ function partialUpdateHtml(newHtml, x, y, fat) {
     const startIdx = children.findIndex((node) => node.id === String(x));
     const endIdx = children.findIndex((node) => node.id === String(y));
 
-    console.log("Found indices:", startIdx, endIdx);
+    // console.log("Found indices:", startIdx, endIdx);
 
     if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
     // console.log("Replacing nodes between indices:", startIdx, endIdx);
