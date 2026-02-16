@@ -22,9 +22,15 @@ import {
   mapDepth,
   mapFather,
   extendMapArray,
+  shrinkMapArray,
 } from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
 import puppeteer from "puppeteer";
+
+type TextChangeMessage = {
+  editor: vscode.TextEditor;
+  change: vscode.TextDocumentContentChangeEvent;
+};
 
 let totalLines = 0;
 
@@ -41,6 +47,10 @@ export function activate(context: vscode.ExtensionContext) {
   let mapLast: (number | undefined)[] = []; // Maps editor line numbers to block IDs for scrolling
   let mapNext: (number | undefined)[] = []; // Maps editor line numbers to next block IDs for boundary detection
 
+  // Message queue for pending text changes to throttle updates
+  const messageQueue: TextChangeMessage[] = [];
+  let isProcessing = false;
+
   const cleanUp = () => {
     // console.log("Cleaning up...");
     totalLines = 0;
@@ -56,7 +66,8 @@ export function activate(context: vscode.ExtensionContext) {
     mapDepth.length = 1;
     mapFather.length = 1;
 
-    // console.log("Panel closed.");
+    messageQueue.length = 0;
+    isProcessing = false;
   };
 
   const updateMapLastNext = () => {
@@ -123,10 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
     handlePreviewSync();
   };
 
-  const handleTextChange = async (
-    editor: vscode.TextEditor,
-    change: vscode.TextDocumentContentChangeEvent,
-  ) => {
+  const handleTextChange = async ({ editor, change }: TextChangeMessage) => {
     if (!panel) return;
     const startLine = change.range.start.line + 1;
     const endLine = change.range.end.line + 1;
@@ -172,6 +180,8 @@ export function activate(context: vscode.ExtensionContext) {
     const xLine = Math.min(mapStartLine[x], startLine);
     const yLine = Math.max(mapEndLine[y], endLine);
     const newYLine = yLine + deltaLength;
+
+    // console.log("xLine:", xLine, "yLine:", yLine, "newYLine:", newYLine, "totalLines:", totalLines);
 
     // Maintain map arrays to ensure they are in sync
     const editorTotalLines = editor.document.lineCount;
@@ -221,6 +231,30 @@ export function activate(context: vscode.ExtensionContext) {
     // console.log("/------ End Handling Change ------/");
   };
 
+  // Message queue for pending text changes to throttle updates
+  const enqueueMessage = (message: TextChangeMessage) => {
+    if (!message.change) return;
+    // console.log("Enqueuing message:", message);
+    messageQueue.push(message);
+    processQueue();
+  };
+  const processQueue = async () => {
+    if (isProcessing || messageQueue.length === 0) {
+      return;
+    }
+    isProcessing = true;
+
+    const message = messageQueue.shift();
+    try {
+      await handleTextChange(message!);
+    } catch (err) {
+      console.error("Error processing message:", err);
+    }
+
+    isProcessing = false;
+    processQueue();
+  };
+
   /**
    * Handles cursor position changes in the editor
    * Updates the stored cursor line and triggers a preview sync
@@ -253,11 +287,11 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeTextDocument(
     (e) => {
       if (e.document.languageId === "markdown" && panel?.visible) {
-        // console.log("Document changed, updating preview...");
         const editor = vscode.window.activeTextEditor;
         if (editor) {
-          e.contentChanges.forEach((change) => {
-            handleTextChange(editor, change);
+          enqueueMessage({
+            editor,
+            change: e.contentChanges[0],
           });
         }
       }
