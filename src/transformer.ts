@@ -90,7 +90,12 @@ export function extendMapArray(totalLines: number) {
   if (totalLines > map.length) {
     map.length = totalLines + 1;
     for (let i = map.length; i <= totalLines; i++) map[i] = undefined;
-  } else map.length = totalLines + 1;
+  }
+}
+export function shrinkMapArray(totalLines: number) {
+  if (totalLines < map.length) {
+    map.length = totalLines + 1;
+  }
 }
 
 /**

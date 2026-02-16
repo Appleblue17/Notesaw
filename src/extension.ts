@@ -186,9 +186,27 @@ export function activate(context: vscode.ExtensionContext) {
     // Maintain map arrays to ensure they are in sync
     const editorTotalLines = editor.document.lineCount;
 
+    const updateMapLines = (line: number, start: number, end: number) => {
+      while (line !== undefined) {
+        let flag = false;
+        if (start < mapStartLine[line]) {
+          mapStartLine[line] = start;
+          flag = true;
+        }
+        if (end > mapEndLine[line]) {
+          mapEndLine[line] = end;
+          flag = true;
+        }
+        if (!flag) break;
+        line = mapFather[line];
+        start = Math.min(start, mapStartLine[line]);
+        end = Math.max(end, mapEndLine[line]);
+      }
+    };
+
     for (let i = 1; i <= counter; i++) {
+      if (mapEndLine[i] >= xLine) mapEndLine[i] += deltaLength;
       if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
-      if (mapEndLine[i] > yLine) mapEndLine[i] += deltaLength;
     }
 
     extendMapArray(editorTotalLines);
@@ -198,9 +216,18 @@ export function activate(context: vscode.ExtensionContext) {
       for (let i = yLine + 1; i <= totalLines; i++) map[i + deltaLength] = map[i];
     }
     for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
+    shrinkMapArray(editorTotalLines);
 
+    // console.log(mapStartLine);
+    // console.log(mapEndLine);
     const raw = getTextFromLineRange(xLine, newYLine);
     const html = await noteProcess(raw, xLine - 1, fat, false);
+    // console.log(mapStartLine);
+    // console.log(mapEndLine);
+
+    for (let i = 1; i <= counter; i++) {
+      updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
+    }
 
     updateMapLastNext();
     totalLines = editorTotalLines;
@@ -280,10 +307,6 @@ export function activate(context: vscode.ExtensionContext) {
   // Set up event listeners for content updates
 
   // Update when text changes in the current document
-  let textChangeTimeout: NodeJS.Timeout | undefined;
-  let isThrottling = false;
-  let pendingChanges: vscode.TextDocumentContentChangeEvent[] = [];
-
   vscode.workspace.onDidChangeTextDocument(
     (e) => {
       if (e.document.languageId === "markdown" && panel?.visible) {
