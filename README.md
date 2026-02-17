@@ -8,7 +8,7 @@ _Notesaw Preview_ is a VS Code extension that provides a live preview of _Notesa
 
 _Notesaw_ is downward compatible with Markdown, so you may also use it as a drop-in replacement for Markdown preview.
 
-- The block style is inspired by Github Alert's design.
+The block style is inspired by [Github Alert](https://github.com/orgs/community/discussions/16925)'s design.
 
 ## Table of Contents
 
@@ -50,10 +50,10 @@ _Notesaw_ is downward compatible with Markdown, so you may also use it as a drop
 
 You can export your Notesaw document to HTML or PDF format. To do this, open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and search for "Notesaw: Export to HTML" or "Notesaw: Export to PDF". The exported file will be saved in the same directory as your Notesaw document.
 
-_Notesaw_ Preview uses [Puppeteer](https://pptr.dev/) to generate PDF files, which requires a working installation of *Chrome for Testing*. 
-If you haven't downloaded one, we recommend manually downloading and installing *chrome* from [Official Releases](https://googlechromelabs.github.io/chrome-for-testing/). Find `chrome` binary that matches your operating system and architecture, download from the corresponding URL, and extract it to a desired location. You should be able to find the `chrome` binary in the extracted folder, and fill its absolute path to the `Puppeteer Path` setting in the extension settings.
+_Notesaw_ Preview uses [Puppeteer](https://pptr.dev/) to generate PDF files, which requires a working installation of _Chrome for Testing_.
+If you haven't downloaded one, we recommend manually downloading and installing _chrome_ from [Official Releases](https://googlechromelabs.github.io/chrome-for-testing/). Find `chrome` binary that matches your operating system and architecture, download from the corresponding URL, and extract it to a desired location. You should be able to find the `chrome` binary in the extracted folder, and fill its absolute path to the `Puppeteer Path` setting in the extension settings.
 
-You can also get *Chrome for Testing* via npm. For more details, please refer to [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing) and [Puppeteer Documentation](https://pptr.dev/guides/installation).
+You can also get _Chrome for Testing_ via npm. For more details, please refer to [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing) and [Puppeteer Documentation](https://pptr.dev/guides/installation).
 
 ### Extension Settings
 
@@ -254,6 +254,7 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 - [x] Error handling
 - [ ] Custom indentation length
 - [ ] Custom block label
+- [x] Export to PDF
 
 #### Notesaw Editor
 
@@ -265,12 +266,10 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 - [x] Scroll Synchronization
   - [x] Editor to preview
   - [ ] Preview to editor
-- [ ] Theme support
+- [x] Theme support
 
 #### Future Plans
 
-- [ ] Theme support
-- [ ] Export to PDF
 - [ ] Wiki links support
 - [ ] Support keypoint summary
 - [ ] Syntax highlighting
@@ -282,9 +281,7 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 - [Enable]/Disable KaTeX
   - [Enable]/Disable inline KaTeX display mode
 - [Enable]/Disable GFM
-- [Instant]/Smooth/Disable scroll synchronization
-- Bright/[Dark]/Auto theme
-- [Real-time]/At save/Disable auto-rendering -->
+- [Instant]/Smooth/Disable scroll synchronization -->
 
 #### Milestones
 

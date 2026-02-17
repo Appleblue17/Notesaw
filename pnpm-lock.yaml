@@ -41,6 +41,9 @@ importers:
       remark-rehype:
         specifier: ^11.1.2
         version: 11.1.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
       unified:
         specifier: ^11.0.5
         version: 11.0.5
@@ -64,7 +67,7 @@ importers:
         specifier: ^3.0.3
         version: 3.0.3
       '@types/vscode':
-        specifier: ^1.109.0
+        specifier: ^1.100.0
         version: 1.109.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.56.0
@@ -84,9 +87,6 @@ importers:
       eslint:
         specifier: ^9.39.2
         version: 9.39.2
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
 packages:
 
@@ -559,8 +559,8 @@ packages:
   azure-devops-node-api@12.5.0:
     resolution: {integrity: sha512-R5eFskGvOm3U/GzeAuxRkUsAl0hrAwGgWn6zAd2KrZmrEhWZVqLew4OOupbQlXUuojUzpGtq62SmdhJ06N88og==}
 
-  b4a@1.7.4:
-    resolution: {integrity: sha512-u20zJLDaSWpxaZ+zaAkEIB2dZZ1o+DF4T/MRbmsvGp9nletHOyiai19OzX1fF8xUBYsO1bPXxODvcd0978pnug==}
+  b4a@1.7.5:
+    resolution: {integrity: sha512-iEsKNwDh1wiWTps1/hdkNdmBgDlDVZP5U57ZVOlt+dNFqpc/lpPouCIxZw+DYBgc4P9NDfIZMPNR4CHNhzwLIA==}
     peerDependencies:
       react-native-b4a: '*'
     peerDependenciesMeta:
@@ -3154,7 +3154,7 @@ snapshots:
       tunnel: 0.0.6
       typed-rest-client: 1.8.11
 
-  b4a@1.7.4: {}
+  b4a@1.7.5: {}
 
   bail@2.0.2: {}
 
@@ -5307,7 +5307,7 @@ snapshots:
 
   tar-stream@3.1.7:
     dependencies:
-      b4a: 1.7.4
+      b4a: 1.7.5
       fast-fifo: 1.3.2
       streamx: 2.23.0
     transitivePeerDependencies:
@@ -5327,7 +5327,7 @@ snapshots:
 
   text-decoder@1.2.7:
     dependencies:
-      b4a: 1.7.4
+      b4a: 1.7.5
     transitivePeerDependencies:
       - react-native-b4a
 

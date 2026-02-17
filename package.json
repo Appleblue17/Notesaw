@@ -2,10 +2,10 @@
   "name": "notesaw-preview",
   "displayName": "Notesaw Preview",
   "description": "An extension markup language of Markdown designed for note-taking and documentation.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "Appleblue17",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.100.0"
   },
   "license": "MIT",
   "keywords": [
@@ -171,7 +171,7 @@
         "notesaw.pdfOptions.displayHeaderFooter": {
           "order": 125,
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Whether to display header and footer in the PDF."
         },
         "notesaw.pdfOptions.headerTemplate": {
@@ -184,7 +184,7 @@
         "notesaw.pdfOptions.footerTemplate": {
           "order": 135,
           "type": "string",
-          "default": "",
+          "default": "<div style=\"width:100%; text-align:center; font-size:10px;\">   Page <span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span> </div>",
           "description": "Only works if displayHeaderFooter is true. HTML template for the PDF footer, set empty to omit. See Puppeteer docs for supported variables.",
           "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF footer, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
         }
@@ -211,6 +211,7 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "typescript": "^5.9.3",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0"
   },
@@ -220,7 +221,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",
     "@vscode/test-cli": "^0.0.10",

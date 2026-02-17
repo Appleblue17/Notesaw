@@ -1,4 +1,6 @@
 .env
+.vscode
+.github
 note_test/
 src/
 scripts/
