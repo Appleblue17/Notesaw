@@ -1,3 +1,7 @@
+let scrollSyncMode = "instant"; // default mode
+let scrollSyncThreshold = 0.2; // default threshold (20% of viewport height)
+let crossPageThreshold = 1; // default cross-page threshold (1 pages)
+
 // morphdom is available globally via UMD
 function updateHtml(newHtml) {
   morphdom(document.getElementsByClassName("markdown-body")[0], newHtml);
@@ -100,7 +104,13 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: "auto",
+        behavior:
+          scrollDistance <= crossPageThreshold * window.innerHeight &&
+          (scrollSyncMode === "smooth" ||
+            (scrollSyncMode === "intelligent" &&
+              scrollDistance > window.innerHeight * scrollSyncThreshold))
+            ? "smooth"
+            : "auto",
       });
     }
   } else {
@@ -126,7 +136,13 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: "auto",
+        behavior:
+          scrollDistance <= crossPageThreshold * window.innerHeight &&
+          (scrollSyncMode === "smooth" ||
+            (scrollSyncMode === "intelligent" &&
+              scrollDistance > window.innerHeight * scrollSyncThreshold))
+            ? "smooth"
+            : "auto",
       });
     }
   }
@@ -143,6 +159,11 @@ window.addEventListener("message", (event) => {
       break;
     case "syncPreview":
       syncPreview(event.data);
+      break;
+    case "setScrollSyncConfig":
+      scrollSyncMode = event.data.mode || scrollSyncMode;
+      scrollSyncThreshold = event.data.threshold || scrollSyncThreshold;
+      crossPageThreshold = event.data.crossPageThreshold || crossPageThreshold;
       break;
   }
 });

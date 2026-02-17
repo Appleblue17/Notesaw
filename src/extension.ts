@@ -472,6 +472,20 @@ export function activate(context: vscode.ExtensionContext) {
         panel.webview.html = resHtml;
         // console.log("Webview initialized");
         handleDocChange(editor, editor.document);
+
+        // Get user configuration
+        const config = vscode.workspace.getConfiguration("notesaw");
+        const scrollSyncMode = config.get<string>("scrollSync.mode") || "instant";
+        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.2;
+        const scrollCrossPageThreshold =
+          config.get<number>("scrollSync.scrollCrossPageThreshold") || 1;
+
+        panel.webview.postMessage({
+          command: "setScrollSyncConfig",
+          mode: scrollSyncMode,
+          threshold: scrollSyncThreshold,
+          crossPageThreshold: scrollCrossPageThreshold,
+        });
       }
     }),
   );
