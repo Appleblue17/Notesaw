@@ -308,7 +308,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Update when text changes in the current document
   vscode.workspace.onDidChangeTextDocument(
-    (e) => {
+    (e: vscode.TextDocumentChangeEvent) => {
       if (e.document.languageId === "markdown" && panel?.visible) {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
@@ -325,7 +325,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Update when the active editor changes to keep preview in sync
   vscode.window.onDidChangeActiveTextEditor(
-    (editor) => {
+    (editor: vscode.TextEditor | undefined) => {
       if (editor && editor.document.languageId === "markdown" && panel?.visible) {
         cleanUp();
         handleDocChange(editor, editor.document);
@@ -338,7 +338,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Listen for selection changes to sync cursor position with preview
-  vscode.window.onDidChangeTextEditorSelection((e) => {
+  vscode.window.onDidChangeTextEditorSelection((e: vscode.TextEditorSelectionChangeEvent) => {
     if (e.textEditor.document.languageId !== "markdown") return;
 
     const line = e.selections[0].active.line;
@@ -348,7 +348,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Listen for scrolling to sync visible range with preview
-  vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
+  vscode.window.onDidChangeTextEditorVisibleRanges((e: vscode.TextEditorVisibleRangesChangeEvent) => {
     if (e.textEditor.document.languageId !== "markdown") return;
 
     const range = e.visibleRanges[0];
@@ -556,7 +556,7 @@ export function activate(context: vscode.ExtensionContext) {
             title: "Exporting Notesaw to PDF",
             cancellable: false,
           },
-          async (progress) => {
+          async (progress: vscode.Progress<{ message?: string; increment?: number }>) => {
             try {
               progress.report({ message: "Converting Notesaw to HTML...", increment: 10 });
 

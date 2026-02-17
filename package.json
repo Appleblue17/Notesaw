@@ -162,11 +162,11 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "convert": "tsc -p ./ && node ./out/convert.js"
+    "convert": "node ./out/convert.js"
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
-    "puppeteer": "^24.24.0",
+    "puppeteer": "^24.37.3",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
     "rehype-katex": "^7.0.1",
@@ -177,21 +177,21 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.6.2",
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
     "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.105.0",
-    "@typescript-eslint/eslint-plugin": "^8.46.0",
-    "@typescript-eslint/parser": "^8.46.0",
+    "@types/vscode": "^1.109.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.37.0",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }
 }

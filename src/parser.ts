@@ -58,6 +58,7 @@ const lines: number[] = [],
  * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
  */
 function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
+  if (!str || !str.trim()) return null; // Return null for empty or whitespace-only strings
   while (str.length && (str[0] === "\n" || str[0] === " ")) (str = str.slice(1)), offset++;
 
   let lines = str.split("\n");
@@ -549,6 +550,7 @@ export function noteBoxParsePlugin() {
     visit(tree, "html", (node: any) => {
       // value is like <box data="{content}" />
       const content = node.value.match(/^<box data="([^"]+)"\/>$/)?.[1];
+      if (!content) return;
 
       const ast = parseNativeMarkdown(content, 0, node.position.start.offset!);
 
