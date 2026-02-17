@@ -18,6 +18,7 @@ const abbrMap: Record<string, string> = {
   alg: "algorithm",
   prob: "problem",
   sol: "solution",
+  ref: "reference",
 };
 
 /**
@@ -58,7 +59,8 @@ const lines: number[] = [],
  * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
  */
 function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
-  while (str.length && (str[0] === "\n" || str[0] === " ")) (str = str.slice(1)), offset++;
+  if (!str || !str.trim()) return null; // Return null for empty or whitespace-only strings
+  while (str.length && (str[0] === "\n" || str[0] === " ")) ((str = str.slice(1)), offset++);
 
   let lines = str.split("\n");
   const trimNums: number[] = [0],
@@ -233,7 +235,7 @@ function parseNote(text: string): NoteNode {
    * @returns `null` if match failed; `{ endIndex, matchNode: {type, data, position, style, children, isLink} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
    */
   const parseBlockBegin = (
-    beginIndex: number
+    beginIndex: number,
   ): null | { endIndex: number; matchNode: NoteNode } => {
     let index = beginIndex,
       label = "",
@@ -343,7 +345,7 @@ function parseNote(text: string): NoteNode {
    * @returns `null` if match failed; `{ endIndex, matchNode: {type, data, position, style, children, isLink} }` if match succeeded, where `index` is the ending index of the match, and `matchNode` is the AST NoteNode.
    */
   const parseInlineBlock = (
-    beginIndex: number
+    beginIndex: number,
   ): null | { endIndex: number; matchNode: NoteNode } => {
     let index = beginIndex,
       label = "",
@@ -480,7 +482,7 @@ function parseNote(text: string): NoteNode {
       const ast: NoteNode | null = parseNativeMarkdown(
         input.slice(last, index),
         indentLevel * 4,
-        last
+        last,
       );
       if (parentNode.type === "root" || parentNode.type === "block") {
         if (ast) parentNode.children.push(ast);
@@ -549,6 +551,7 @@ export function noteBoxParsePlugin() {
     visit(tree, "html", (node: any) => {
       // value is like <box data="{content}" />
       const content = node.value.match(/^<box data="([^"]+)"\/>$/)?.[1];
+      if (!content) return;
 
       const ast = parseNativeMarkdown(content, 0, node.position.start.offset!);
 

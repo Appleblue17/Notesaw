@@ -17,12 +17,15 @@ _Notesaw_ uses icon from [Feature Icons](https://feathericons.com/). Reference t
 | definition  |      compass      |
 |     tip     |       info        |
 |    note     |     bookmark      |
+|    mark     |     bookmark      |
 |   remark    |       bell        |
 |  reminder   |       bell        |
 |     key     |        key        |
 |   example   |       list        |
 |   problem   |    help-circle    |
 |  solution   |       check       |
+|   notice    |   alert-circle    |
+|    alert    |  alert-triangle   |
 |   warning   |  alert-triangle   |
 |   caution   |   alert-octagon   |
 |  variables  |       list        |
@@ -32,6 +35,13 @@ _Notesaw_ uses icon from [Feature Icons](https://feathericons.com/). Reference t
 |  remember   |       star        |
 |   summary   |       star        |
 |   method    |       tool        |
+|   extend    |        zap        |
+|  extension  |        zap        |
+|   discuss   |  message-square   |
+|  question   |    help-circle    |
+|  exercise   |      edit-2       |
+|  reference  |       book        |
+|    link     |       link        |
 
 ### Abbreviations
 
@@ -49,3 +59,4 @@ To make it more convenient, _Notesaw_ set up a set of abbreviations for block la
 |     alg      |  algorithm  |
 |     prob     |   problem   |
 |     sol      |  solution   |
+|     ref      |  reference  |

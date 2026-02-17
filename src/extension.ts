@@ -22,9 +22,15 @@ import {
   mapDepth,
   mapFather,
   extendMapArray,
+  shrinkMapArray,
 } from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
 import puppeteer from "puppeteer";
+
+type TextChangeMessage = {
+  editor: vscode.TextEditor;
+  change: vscode.TextDocumentContentChangeEvent;
+};
 
 let totalLines = 0;
 
@@ -41,9 +47,12 @@ export function activate(context: vscode.ExtensionContext) {
   let mapLast: (number | undefined)[] = []; // Maps editor line numbers to block IDs for scrolling
   let mapNext: (number | undefined)[] = []; // Maps editor line numbers to next block IDs for boundary detection
 
+  // Message queue for pending text changes to throttle updates
+  const messageQueue: TextChangeMessage[] = [];
+  let isProcessing = false;
+
   const cleanUp = () => {
     // console.log("Cleaning up...");
-    panel = undefined;
     totalLines = 0;
     activeCursorLine = 0;
     visibleRange = undefined;
@@ -56,6 +65,9 @@ export function activate(context: vscode.ExtensionContext) {
     mapEndLine.length = 1;
     mapDepth.length = 1;
     mapFather.length = 1;
+
+    messageQueue.length = 0;
+    isProcessing = false;
   };
 
   const updateMapLastNext = () => {
@@ -104,7 +116,9 @@ export function activate(context: vscode.ExtensionContext) {
     totalLines = editor.document.lineCount;
     extendMapArray(totalLines);
 
+    // console.log("Start rendering document in preview...");
     const html = await noteProcess(document.getText(), 0, 0, true);
+    // console.log(html);
     updateMapLastNext();
 
     panel.webview.postMessage({
@@ -120,10 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
     handlePreviewSync();
   };
 
-  const handleTextChange = async (
-    editor: vscode.TextEditor,
-    change: vscode.TextDocumentContentChangeEvent
-  ) => {
+  const handleTextChange = async ({ editor, change }: TextChangeMessage) => {
     if (!panel) return;
     const startLine = change.range.start.line + 1;
     const endLine = change.range.end.line + 1;
@@ -136,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
         start - 1,
         0,
         end - 1,
-        editor.document.lineAt(end - 1).text.length
+        editor.document.lineAt(end - 1).text.length,
       );
       return editor.document.getText(range);
     };
@@ -170,12 +181,32 @@ export function activate(context: vscode.ExtensionContext) {
     const yLine = Math.max(mapEndLine[y], endLine);
     const newYLine = yLine + deltaLength;
 
+    // console.log("xLine:", xLine, "yLine:", yLine, "newYLine:", newYLine, "totalLines:", totalLines);
+
     // Maintain map arrays to ensure they are in sync
     const editorTotalLines = editor.document.lineCount;
 
+    const updateMapLines = (line: number, start: number, end: number) => {
+      while (line !== undefined) {
+        let flag = false;
+        if (start < mapStartLine[line]) {
+          mapStartLine[line] = start;
+          flag = true;
+        }
+        if (end > mapEndLine[line]) {
+          mapEndLine[line] = end;
+          flag = true;
+        }
+        if (!flag) break;
+        line = mapFather[line];
+        start = Math.min(start, mapStartLine[line]);
+        end = Math.max(end, mapEndLine[line]);
+      }
+    };
+
     for (let i = 1; i <= counter; i++) {
+      if (mapEndLine[i] >= xLine) mapEndLine[i] += deltaLength;
       if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
-      if (mapEndLine[i] > yLine) mapEndLine[i] += deltaLength;
     }
 
     extendMapArray(editorTotalLines);
@@ -185,9 +216,18 @@ export function activate(context: vscode.ExtensionContext) {
       for (let i = yLine + 1; i <= totalLines; i++) map[i + deltaLength] = map[i];
     }
     for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
+    shrinkMapArray(editorTotalLines);
 
+    // console.log(mapStartLine);
+    // console.log(mapEndLine);
     const raw = getTextFromLineRange(xLine, newYLine);
     const html = await noteProcess(raw, xLine - 1, fat, false);
+    // console.log(mapStartLine);
+    // console.log(mapEndLine);
+
+    for (let i = 1; i <= counter; i++) {
+      updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
+    }
 
     updateMapLastNext();
     totalLines = editorTotalLines;
@@ -218,6 +258,30 @@ export function activate(context: vscode.ExtensionContext) {
     // console.log("/------ End Handling Change ------/");
   };
 
+  // Message queue for pending text changes to throttle updates
+  const enqueueMessage = (message: TextChangeMessage) => {
+    if (!message.change) return;
+    // console.log("Enqueuing message:", message);
+    messageQueue.push(message);
+    processQueue();
+  };
+  const processQueue = async () => {
+    if (isProcessing || messageQueue.length === 0) {
+      return;
+    }
+    isProcessing = true;
+
+    const message = messageQueue.shift();
+    try {
+      await handleTextChange(message!);
+    } catch (err) {
+      console.error("Error processing message:", err);
+    }
+
+    isProcessing = false;
+    processQueue();
+  };
+
   /**
    * Handles cursor position changes in the editor
    * Updates the stored cursor line and triggers a preview sync
@@ -244,36 +308,37 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Update when text changes in the current document
   vscode.workspace.onDidChangeTextDocument(
-    (e) => {
+    (e: vscode.TextDocumentChangeEvent) => {
       if (e.document.languageId === "markdown" && panel?.visible) {
-        // console.log("Document changed, updating preview...");
         const editor = vscode.window.activeTextEditor;
         if (editor) {
-          e.contentChanges.forEach((change) => {
-            handleTextChange(editor, change);
+          enqueueMessage({
+            editor,
+            change: e.contentChanges[0],
           });
         }
       }
     },
     null,
-    context.subscriptions
+    context.subscriptions,
   );
 
   // Update when the active editor changes to keep preview in sync
   vscode.window.onDidChangeActiveTextEditor(
-    (editor) => {
+    (editor: vscode.TextEditor | undefined) => {
       if (editor && editor.document.languageId === "markdown" && panel?.visible) {
+        cleanUp();
         handleDocChange(editor, editor.document);
         handleCursorLineChange(editor.selection.active.line);
         handleVisibleRangeChange(editor.visibleRanges[0]);
       }
     },
     null,
-    context.subscriptions
+    context.subscriptions,
   );
 
   // Listen for selection changes to sync cursor position with preview
-  vscode.window.onDidChangeTextEditorSelection((e) => {
+  vscode.window.onDidChangeTextEditorSelection((e: vscode.TextEditorSelectionChangeEvent) => {
     if (e.textEditor.document.languageId !== "markdown") return;
 
     const line = e.selections[0].active.line;
@@ -283,17 +348,19 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Listen for scrolling to sync visible range with preview
-  vscode.window.onDidChangeTextEditorVisibleRanges((e) => {
-    if (e.textEditor.document.languageId !== "markdown") return;
+  vscode.window.onDidChangeTextEditorVisibleRanges(
+    (e: vscode.TextEditorVisibleRangesChangeEvent) => {
+      if (e.textEditor.document.languageId !== "markdown") return;
 
-    const range = e.visibleRanges[0];
-    if (
-      range.start.line !== visibleRange?.start.line ||
-      range.end.line !== visibleRange?.end.line
-    ) {
-      handleVisibleRangeChange(range);
-    }
-  });
+      const range = e.visibleRanges[0];
+      if (
+        range.start.line !== visibleRange?.start.line ||
+        range.end.line !== visibleRange?.end.line
+      ) {
+        handleVisibleRangeChange(range);
+      }
+    },
+  );
 
   // Register the command to show the Notesaw preview
   context.subscriptions.push(
@@ -302,12 +369,13 @@ export function activate(context: vscode.ExtensionContext) {
       // This is triggered when the user runs the "Notesaw: Show Preview" command
 
       // console.log("Show Preview command triggered");
+      cleanUp();
 
       const editor = vscode.window.activeTextEditor;
       if (editor) {
-        // Verify the document is a Notesaw file
+        // Verify the document is a Markdown file
         if (editor.document.languageId !== "markdown") {
-          vscode.window.showErrorMessage("Please open a Notesaw file.");
+          vscode.window.showErrorMessage("Please open a Markdown file.");
           return;
         }
 
@@ -327,14 +395,22 @@ export function activate(context: vscode.ExtensionContext) {
                 currentDirUri, // user's current directory
               ],
               enableScripts: true, // Allow JavaScript in the webview for interactivity
-            }
+              retainContextWhenHidden: true, // Keep the webview context even when it's not visible
+            },
           );
 
           handleCursorLineChange(editor.selection.active.line);
           handleVisibleRangeChange(editor.visibleRanges[0]);
 
           // Handle panel disposal
-          panel.onDidDispose(cleanUp, null, context.subscriptions);
+          panel.onDidDispose(
+            () => {
+              cleanUp();
+              panel = undefined;
+            },
+            null,
+            context.subscriptions,
+          );
         }
 
         // Show the panel next to the editor
@@ -342,25 +418,25 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Prepare resource URIs for the webview
         const noteCssUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "note.css")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "note.css"),
         );
         const ghmCssUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "github-markdown.css")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "github-markdown.css"),
         );
         const katexCssUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "katex.min.css")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "styles", "katex.min.css"),
         );
         const featherSvgPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
           "icon",
-          "feather-sprite.svg"
+          "feather-sprite.svg",
         ).fsPath;
         const morphdomUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "morphdom-umd.min.js")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "morphdom-umd.min.js"),
         );
         const webviewScriptUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "webview-script.js")
+          vscode.Uri.joinPath(context.extensionUri, "assets", "script", "webview-script.js"),
         );
 
         // image from the user's current workspace
@@ -381,6 +457,7 @@ export function activate(context: vscode.ExtensionContext) {
           theme = undefined;
         }
 
+        // console.log("Starting to initialize webview with theme:", theme);
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(
           noteCssUri.toString(),
@@ -390,24 +467,39 @@ export function activate(context: vscode.ExtensionContext) {
           morphdomUri.toString(),
           webviewScriptUri.toString(),
           panel.webview.cspSource,
-          theme
+          theme,
         );
         panel.webview.html = resHtml;
+        // console.log("Webview initialized");
         handleDocChange(editor, editor.document);
+
+        // Get user configuration
+        const config = vscode.workspace.getConfiguration("notesaw");
+        const scrollSyncMode = config.get<string>("scrollSync.mode") || "instant";
+        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.2;
+        const scrollCrossPageThreshold =
+          config.get<number>("scrollSync.scrollCrossPageThreshold") || 1;
+
+        panel.webview.postMessage({
+          command: "setScrollSyncConfig",
+          mode: scrollSyncMode,
+          threshold: scrollSyncThreshold,
+          crossPageThreshold: scrollCrossPageThreshold,
+        });
       }
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("notesaw.export_to_html", async () => {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
-        // Verify the document is a Notesaw file
+        // Verify the document is a Markdown file
         if (editor.document.languageId !== "markdown") {
-          vscode.window.showErrorMessage("Please open a Notesaw file.");
+          vscode.window.showErrorMessage("Please open a Markdown file.");
           return;
         }
-        vscode.window.showInformationMessage("Start exporting Notesaw file to raw HTML...");
+        vscode.window.showInformationMessage("Start exporting Markdown file to raw HTML...");
 
         const html = await noteProcess(editor.document.getText(), 0, 0, true);
         const savePath = editor.document.uri.fsPath.replace(/\.md$/, ".html");
@@ -419,16 +511,16 @@ export function activate(context: vscode.ExtensionContext) {
         let dispPath = vscode.workspace.asRelativePath(htmlUri);
         vscode.window.showInformationMessage(`Exported to HTML: ${dispPath}`);
       }
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("notesaw.export_to_pdf", async () => {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
-        // Verify the document is a Notesaw file
+        // Verify the document is a Markdown file
         if (editor.document.languageId !== "markdown") {
-          vscode.window.showErrorMessage("Please open a Notesaw file.");
+          vscode.window.showErrorMessage("Please open a Markdown file.");
           return;
         }
 
@@ -454,25 +546,25 @@ export function activate(context: vscode.ExtensionContext) {
           context.extensionUri,
           "assets",
           "styles",
-          "note.css"
+          "note.css",
         ).fsPath;
         const ghmCssPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
           "styles",
-          "github-markdown.css"
+          "github-markdown.css",
         ).fsPath;
         const katexCssPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
           "styles",
-          "katex.min.css"
+          "katex.min.css",
         ).fsPath;
         const featherSvgPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
           "icon",
-          "feather-sprite.svg"
+          "feather-sprite.svg",
         ).fsPath;
 
         vscode.window.withProgress(
@@ -481,7 +573,7 @@ export function activate(context: vscode.ExtensionContext) {
             title: "Exporting Notesaw to PDF",
             cancellable: false,
           },
-          async (progress) => {
+          async (progress: vscode.Progress<{ message?: string; increment?: number }>) => {
             try {
               progress.report({ message: "Converting Notesaw to HTML...", increment: 10 });
 
@@ -490,7 +582,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const absPath = editor.document.uri.fsPath;
                 folderPath = "file://" + path.dirname(absPath);
               } else {
-                vscode.window.showErrorMessage("Please open a Notesaw file.");
+                vscode.window.showErrorMessage("Please open a Markdown file.");
                 return;
               }
 
@@ -500,7 +592,7 @@ export function activate(context: vscode.ExtensionContext) {
                 undefined,
                 katexCssPath,
                 folderPath,
-                featherSvgPath
+                featherSvgPath,
               );
 
               // Use Puppeteer to convert HTML to PDF
@@ -511,7 +603,7 @@ export function activate(context: vscode.ExtensionContext) {
               const htmlPath = editor.document.uri.fsPath.replace(/\.md$/, ".export.html");
               await vscode.workspace.fs.writeFile(
                 vscode.Uri.file(htmlPath),
-                new TextEncoder().encode(html)
+                new TextEncoder().encode(html),
               );
 
               // 2. [PDF Generation] Launch browser and load HTML
@@ -530,7 +622,7 @@ export function activate(context: vscode.ExtensionContext) {
                 });
               } catch (e) {
                 vscode.window.showErrorMessage(
-                  "Launch failed, probably because Chrome executable is not found. Please refer to [Get Started - Exporting](https://github.com/Appleblue17/Notesaw?tab=readme-ov-file#get-started) to install and configure it."
+                  "Launch failed, probably because Chrome executable is not found. Please refer to [Get Started - Exporting](https://github.com/Appleblue17/Notesaw?tab=readme-ov-file#get-started) to install and configure it.",
                 );
                 throw e;
               }
@@ -564,10 +656,10 @@ export function activate(context: vscode.ExtensionContext) {
               console.error("Error generating PDF:", err);
               vscode.window.showErrorMessage(`Failed to export to PDF: ${err}`);
             }
-          }
+          },
         );
       }
-    })
+    }),
   );
 }
 

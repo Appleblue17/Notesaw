@@ -2,10 +2,10 @@
   "name": "notesaw-preview",
   "displayName": "Notesaw Preview",
   "description": "An extension markup language of Markdown designed for note-taking and documentation.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "Appleblue17",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.100.0"
   },
   "license": "MIT",
   "keywords": [
@@ -71,11 +71,41 @@
           "description": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme.",
           "markdownDescription": "Theme for rendering the preview. 'follow-vscode' will match the VSCode theme (light or dark). 'follow-system' will match the system theme."
         },
+        "notesaw.scrollSync.mode": {
+          "type": "string",
+          "order": 10,
+          "enum": [
+            "instant",
+            "smooth",
+            "intelligent"
+          ],
+          "default": "instant",
+          "description": "Scroll synchronization mode. 'instant' will sync the scroll position immediately. 'smooth' will smoothly scroll to the new position. 'intelligent' will only trigger synchronization if the scroll distance is within a certain threshold.",
+          "markdownDescription": "Scroll synchronization mode. 'instant' will sync the scroll position immediately. 'smooth' will smoothly scroll to the new position. 'intelligent' will only trigger synchronization if the scroll distance is within a certain threshold."
+        },
+        "notesaw.scrollSync.intelligentThreshold": {
+          "type": "number",
+          "order": 11,
+          "default": 0.1,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Only works when notesaw.scrollSync.mode is set to 'intelligent'. Threshold for triggering scroll synchronization, as a percentage of the viewport height. A scroll event will only trigger synchronization if the scroll position is within this distance from the top or bottom of the viewport.",
+          "markdownDescription": "Only works when notesaw.scrollSync.mode is set to 'intelligent'. Threshold for triggering scroll synchronization, as a percentage of the viewport height. A scroll event will only trigger synchronization if the scroll position is within this distance from the top or bottom of the viewport."
+        },
+        "notesaw.scrollSync.scrollCrossPageThreshold": {
+          "type": "number",
+          "order": 12,
+          "default": 1,
+          "minimum": 0,
+          "description": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages.",
+          "markdownDescription": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages."
+        },
         "notesaw.pdfOptions.puppeteerPath": {
           "order": 100,
           "type": "string",
           "default": "",
-          "description": "Path to the Chrome executable to be used by Puppeteer. Leave empty to use the package-bundled Chrome."
+          "description": "Path to the Chrome executable to be used by Puppeteer. Leave empty to use the package-bundled Chrome.",
+          "markdownDescription": "Path to the Chrome executable to be used by Puppeteer. Leave empty to use the package-bundled Chrome."
         },
         "notesaw.pdfOptions.format": {
           "order": 105,
@@ -95,7 +125,8 @@
           "order": 115,
           "type": "boolean",
           "default": false,
-          "description": "Whether to export the PDF in landscape orientation."
+          "description": "Whether to export the PDF in landscape orientation.",
+          "markdownDescription": "Whether to export the PDF in landscape orientation."
         },
         "notesaw.pdfOptions.margin": {
           "order": 120,
@@ -106,22 +137,26 @@
             "top": {
               "type": "string",
               "default": "20mm",
-              "description": "Top margin."
+              "description": "Top margin.",
+              "markdownDescription": "Top margin."
             },
             "bottom": {
               "type": "string",
               "default": "20mm",
-              "description": "Bottom margin."
+              "description": "Bottom margin.",
+              "markdownDescription": "Bottom margin."
             },
             "left": {
               "type": "string",
               "default": "15mm",
-              "description": "Left margin."
+              "description": "Left margin.",
+              "markdownDescription": "Left margin."
             },
             "right": {
               "type": "string",
               "default": "15mm",
-              "description": "Right margin."
+              "description": "Right margin.",
+              "markdownDescription": "Right margin."
             }
           }
         },
@@ -136,7 +171,7 @@
         "notesaw.pdfOptions.displayHeaderFooter": {
           "order": 125,
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Whether to display header and footer in the PDF."
         },
         "notesaw.pdfOptions.headerTemplate": {
@@ -149,7 +184,7 @@
         "notesaw.pdfOptions.footerTemplate": {
           "order": 135,
           "type": "string",
-          "default": "",
+          "default": "<div style=\"width:100%; text-align:center; font-size:10px;\">   Page <span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span> </div>",
           "description": "Only works if displayHeaderFooter is true. HTML template for the PDF footer, set empty to omit. See Puppeteer docs for supported variables.",
           "markdownDescription": "Only works if `displayHeaderFooter` is true. HTML template for the PDF footer, set empty to omit. See [Puppeteer docs](https://pptr.dev/api/puppeteer.pdfoptions) for supported variables."
         }
@@ -162,11 +197,11 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "convert": "tsc -p ./ && node ./out/convert.js"
+    "convert": "node ./out/convert.js"
   },
   "dependencies": {
     "@pondorasti/remark-img-links": "^1.0.8",
-    "puppeteer": "^24.24.0",
+    "puppeteer": "^24.37.3",
     "rehype-document": "^7.0.3",
     "rehype-format": "^5.0.1",
     "rehype-katex": "^7.0.1",
@@ -176,22 +211,23 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "typescript": "^5.9.3",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.6.2",
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
     "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
     "@types/unist": "^3.0.3",
-    "@types/vscode": "^1.105.0",
-    "@typescript-eslint/eslint-plugin": "^8.46.0",
-    "@typescript-eslint/parser": "^8.46.0",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.37.0",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^9.39.2",
     "typescript": "^5.9.3"
   }
 }

@@ -53,12 +53,15 @@ const iconMap: Record<string, string> = {
   definition: "compass",
   tip: "info",
   note: "bookmark",
+  mark: "bookmark",
   remark: "bell",
   reminder: "bell",
   key: "key",
   example: "list",
   problem: "help-circle",
   solution: "check",
+  notice: "alert-circle",
+  alert: "alert-triangle",
   warning: "alert-triangle",
   caution: "alert-octagon",
   variables: "list",
@@ -68,6 +71,13 @@ const iconMap: Record<string, string> = {
   remember: "star",
   summary: "star",
   method: "tool",
+  extend: "zap",
+  extension: "zap",
+  discuss: "message-square",
+  question: "help-circle",
+  exercise: "edit-2",
+  reference: "book",
+  link: "link",
 };
 
 export let counter = 0;
@@ -90,7 +100,12 @@ export function extendMapArray(totalLines: number) {
   if (totalLines > map.length) {
     map.length = totalLines + 1;
     for (let i = map.length; i <= totalLines; i++) map[i] = undefined;
-  } else map.length = totalLines + 1;
+  }
+}
+export function shrinkMapArray(totalLines: number) {
+  if (totalLines < map.length) {
+    map.length = totalLines + 1;
+  }
 }
 
 /**

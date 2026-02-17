@@ -1,3 +1,7 @@
+let scrollSyncMode = "instant"; // default mode
+let scrollSyncThreshold = 0.2; // default threshold (20% of viewport height)
+let crossPageThreshold = 1; // default cross-page threshold (1 pages)
+
 // morphdom is available globally via UMD
 function updateHtml(newHtml) {
   morphdom(document.getElementsByClassName("markdown-body")[0], newHtml);
@@ -13,45 +17,32 @@ function partialUpdateHtml(newHtml, x, y, fat) {
   const newChildren = Array.from(tempDiv.childNodes[0].childNodes);
   // console.log("newChildren:", newChildren);
 
-  // 找到父节点 fat
+  // Find the parent element (fat) in the current DOM
   const parent = document.getElementById(fat);
   if (!parent) return;
 
-  if (x === y) {
-    const target = document.getElementById(x);
-    if (!target) return;
+  // Both x and y are children of fat, and x comes before y
+  const children = Array.from(parent.childNodes);
+  const startIdx = children.findIndex((node) => node.id === String(x));
+  const endIdx = children.findIndex((node) => node.id === String(y));
 
-    const refNode = target.nextSibling; // 记录插入点
-    parent.removeChild(target); // 删除 target 节点本身
+  // console.log("Found indices:", startIdx, endIdx);
 
-    // 插入 newHtml 的所有儿子到原位置
-    newChildren.forEach((child) => parent.insertBefore(child, refNode));
-  } else {
-    // console.log("Replacing children between:", x, y);
+  if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
+  // console.log("Replacing nodes between indices:", startIdx, endIdx);
 
-    // x 和 y 都是 fat 的儿子，且 x 在 y 前面
-    const children = Array.from(parent.childNodes);
-    const startIdx = children.findIndex((node) => node.id === String(x));
-    const endIdx = children.findIndex((node) => node.id === String(y));
+  const refNode = children[endIdx].nextSibling;
+  // console.log("refNode:", refNode);
 
-    console.log("Found indices:", startIdx, endIdx);
-
-    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
-    // console.log("Replacing nodes between indices:", startIdx, endIdx);
-
-    const refNode = children[endIdx].nextSibling;
-    // console.log("refNode:", refNode);
-
-    // 删除 x 到 y 之间的所有节点（包括 x 和 y）
-    for (let i = startIdx; i <= endIdx; i++) {
-      parent.removeChild(children[i]);
-    }
-
-    // 在 refNode 之前插入 newHtml 的所有儿子
-    newChildren.forEach((child) => {
-      parent.insertBefore(child, refNode);
-    });
+  // Delete all nodes from startIdx to endIdx (inclusive)
+  for (let i = startIdx; i <= endIdx; i++) {
+    parent.removeChild(children[i]);
   }
+
+  // Insert all new children before the reference node
+  newChildren.forEach((child) => {
+    parent.insertBefore(child, refNode);
+  });
 }
 
 /**
@@ -113,7 +104,13 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: "auto",
+        behavior:
+          scrollDistance <= crossPageThreshold * window.innerHeight &&
+          (scrollSyncMode === "smooth" ||
+            (scrollSyncMode === "intelligent" &&
+              scrollDistance > window.innerHeight * scrollSyncThreshold))
+            ? "smooth"
+            : "auto",
       });
     }
   } else {
@@ -139,7 +136,13 @@ function syncPreview(data) {
       // Use smooth behavior only for longer scrolls
       window.scrollTo({
         top: scrollPosition,
-        behavior: "auto",
+        behavior:
+          scrollDistance <= crossPageThreshold * window.innerHeight &&
+          (scrollSyncMode === "smooth" ||
+            (scrollSyncMode === "intelligent" &&
+              scrollDistance > window.innerHeight * scrollSyncThreshold))
+            ? "smooth"
+            : "auto",
       });
     }
   }
@@ -156,6 +159,11 @@ window.addEventListener("message", (event) => {
       break;
     case "syncPreview":
       syncPreview(event.data);
+      break;
+    case "setScrollSyncConfig":
+      scrollSyncMode = event.data.mode || scrollSyncMode;
+      scrollSyncThreshold = event.data.threshold || scrollSyncThreshold;
+      crossPageThreshold = event.data.crossPageThreshold || crossPageThreshold;
       break;
   }
 });

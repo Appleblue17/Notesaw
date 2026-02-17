@@ -38,3 +38,25 @@
 - Add `scale` configuration for PDF exporting.
 - Enhance guidance for downloading _Chrome for Testing_ to enable Puppeteer's PDF exporting functionality.
 - Optimize Extension package size.
+
+## [0.2.2] - 2026-02-17
+
+### Features
+
+- Added configuration options for scroll synchronization between editor and preview.
+- Improved update handling for synchronized scrolling.
+
+### Bug Fixes
+
+- Fixed webview losing context when hidden.
+- Cleaned up internal states when switching files.
+- Improved text change handling by introducing a message queue for better performance.
+- Resolved various issues with `mapLine` updates.
+- Fixed comment parsing errors.
+- Ensured proper cleanup when showing preview (e.g., after clicking the startup button).
+
+### Enhancements
+
+- Added TypeScript type annotations for event handlers in `extension.ts` to improve type safety.
+- Introduced new block types and corresponding icons in `BLOCKLABEL`.
+- Updated abbreviation mapping for new block types.
