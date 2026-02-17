@@ -348,17 +348,19 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Listen for scrolling to sync visible range with preview
-  vscode.window.onDidChangeTextEditorVisibleRanges((e: vscode.TextEditorVisibleRangesChangeEvent) => {
-    if (e.textEditor.document.languageId !== "markdown") return;
+  vscode.window.onDidChangeTextEditorVisibleRanges(
+    (e: vscode.TextEditorVisibleRangesChangeEvent) => {
+      if (e.textEditor.document.languageId !== "markdown") return;
 
-    const range = e.visibleRanges[0];
-    if (
-      range.start.line !== visibleRange?.start.line ||
-      range.end.line !== visibleRange?.end.line
-    ) {
-      handleVisibleRangeChange(range);
-    }
-  });
+      const range = e.visibleRanges[0];
+      if (
+        range.start.line !== visibleRange?.start.line ||
+        range.end.line !== visibleRange?.end.line
+      ) {
+        handleVisibleRangeChange(range);
+      }
+    },
+  );
 
   // Register the command to show the Notesaw preview
   context.subscriptions.push(
@@ -367,6 +369,7 @@ export function activate(context: vscode.ExtensionContext) {
       // This is triggered when the user runs the "Notesaw: Show Preview" command
 
       // console.log("Show Preview command triggered");
+      cleanUp();
 
       const editor = vscode.window.activeTextEditor;
       if (editor) {
@@ -467,7 +470,7 @@ export function activate(context: vscode.ExtensionContext) {
           theme,
         );
         panel.webview.html = resHtml;
-        console.log("Webview initialized");
+        // console.log("Webview initialized");
         handleDocChange(editor, editor.document);
       }
     }),
