@@ -312,10 +312,12 @@ export function activate(context: vscode.ExtensionContext) {
       if (e.document.languageId === "markdown" && panel?.visible) {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
-          enqueueMessage({
-            editor,
-            change: e.contentChanges[0],
-          });
+          for (const change of e.contentChanges) {
+            enqueueMessage({
+              editor,
+              change: change,
+            });
+          }
         }
       }
     },
@@ -476,7 +478,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Get user configuration
         const config = vscode.workspace.getConfiguration("notesaw");
         const scrollSyncMode = config.get<string>("scrollSync.mode") || "instant";
-        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.2;
+        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.1;
         const scrollCrossPageThreshold =
           config.get<number>("scrollSync.scrollCrossPageThreshold") || 1;
 

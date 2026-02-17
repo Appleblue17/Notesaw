@@ -1,5 +1,5 @@
 let scrollSyncMode = "instant"; // default mode
-let scrollSyncThreshold = 0.2; // default threshold (20% of viewport height)
+let scrollSyncThreshold = 0.1; // default threshold (10% of viewport height)
 let crossPageThreshold = 1; // default cross-page threshold (1 pages)
 
 // morphdom is available globally via UMD
