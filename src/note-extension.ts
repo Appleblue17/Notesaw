@@ -1,25 +1,24 @@
 /**
- * @file Markdown note processor with custom extensions
+ * @file Notesaw webview adapter.
  *
- * This is a wrapper of the whole Notesaw pipeline. It processes a note document, converting it to HTML,
+ * Wraps the shared core pipeline (src/core.ts) for the VS Code webview:
+ *  - `noteProcessInit`  builds the webview HTML shell (CSS/JS/CSP framework).
+ *  - `noteProcess`      renders a Notesaw document/fragment to a bare HTML snippet.
  */
 
-import type { Root as HastRoot } from "hast";
-import type { Root as MdastRoot } from "mdast";
 import { unified } from "unified";
-import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
-import rehypeKatex from "rehype-katex";
 import rehypeDocument from "rehype-document";
-import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
-import { workspaceUri } from "./env.ts";
-
 import fs from "fs";
-import prettyPrint from "./utils/prettyprint.ts";
-import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import { noteTransformPlugin } from "./transformer.ts";
-import { NoteNode } from "./index.ts";
+
+import noteParsePlugin from "./parser.ts";
+import { workspaceUri } from "./env.ts";
+import {
+  renderFragment,
+  injectSvgSprite,
+  applyTheme,
+} from "./core.ts";
 
 /**
  * Generate an initial HTML document (framework) without content.
@@ -59,40 +58,32 @@ export async function noteProcessInit(
     .process("### Rendering Notesaw Preview...\n#### Please wait...");
 
   const htmlString = String(vfile);
-
-  // Read and inject SVG sprite for icons
   const svgContent = fs.readFileSync(featherSvgPath, "utf8");
 
-  // Insert the SVG sprite into the HTML before closing body tag
-  const bodyCloseTag = "</body>";
-  const svgTag = `<div style="display:none">${svgContent}</div>\n`;
-
-  let finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
-  if (theme) {
-    // Add data-theme attribute to <body> tag
-    finalHtml = finalHtml.replace(/<body([^>]*)>/, `<body$1 data-theme="${theme}">`);
-  }
+  let finalHtml = injectSvgSprite(htmlString, svgContent);
+  finalHtml = applyTheme(finalHtml, theme);
   return finalHtml;
 }
 
+/**
+ * Renders a Notesaw document (or an incremental fragment) to a bare HTML snippet
+ * that the webview can merge into the existing preview DOM.
+ *
+ * @param doc - Source text to render.
+ * @param baseLine - Line offset for position mapping (0 for a full document).
+ * @param fatherId - Parent block ID the rendered fragments attach under.
+ * @param labelRoot - Whether the root markdown-body wrapper should receive an ID.
+ */
 export async function noteProcess(
   doc: string,
   baseLine: number,
   fatherId: number,
   labelRoot: boolean
-): Promise<String> {
-  console.log("workspaceUri:", workspaceUri);
-  // Create a single unified processor with all plugins
-  const html = await unified()
-    .use(noteParsePlugin)
-    .use(noteBoxParsePlugin)
-    .use(remarkImgLinks, { absolutePath: workspaceUri + "/" })
-    .use(remarkRehype)
-    .use(rehypeKatex)
-    .use(noteTransformPlugin, baseLine, fatherId, labelRoot)
-    .use(rehypeStarryNight)
-    .use(rehypeStringify)
-    .process(doc);
-
-  return String(html);
+): Promise<string> {
+  return renderFragment(doc, {
+    imgBase: workspaceUri,
+    baseLine,
+    fatherId,
+    labelRoot,
+  });
 }

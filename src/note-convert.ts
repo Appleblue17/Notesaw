@@ -1,51 +1,29 @@
 /**
- * @file Markdown note processor with custom extensions
+ * @file Notesaw standalone / converter adapter.
  *
- * This is a wrapper of the whole Notesaw pipeline. It processes a note document, converting it to HTML,
+ * Wraps the shared core pipeline (src/core.ts) to produce a fully standalone,
+ * self-contained HTML document (used by `export to HTML` and PDF generation).
  */
 
-import { unified } from "unified";
-import remarkImgLinks from "@pondorasti/remark-img-links";
-import remarkRehype from "remark-rehype";
-import rehypeKatex from "rehype-katex";
-import rehypeStarryNight from "rehype-starry-night";
-import rehypeStringify from "rehype-stringify";
-
-import fs from "fs";
-import prettyPrint from "./utils/prettyprint.ts";
-import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import {
-  noteTransformPlugin,
-  map,
-  mapDepth,
-  mapFather,
-  mapStartLine,
-  mapEndLine,
-  extendMapArray,
-} from "./transformer.ts";
-import rehypeFormat from "rehype-format";
 import rehypeDocument from "rehype-document";
-import { NoteNode } from "./index.ts";
-import { workspaceUri, setWorkspaceUri } from "./env.ts";
+import rehypeFormat from "rehype-format";
+import rehypeStringify from "rehype-stringify";
+import fs from "fs";
+
+import { createCorePipeline, injectSvgSprite, applyTheme } from "./core.ts";
+import { extendMapArray } from "./transformer.ts";
 
 /**
- * Processes a note document and converts it to HTML
+ * Processes a Notesaw document and converts it to a standalone HTML document.
  *
- * This function processes the markdown note through a pipeline of transformations:
- * 1. Preprocesses math formulas
- * 2. Parses the document using custom note parser
- * 3. Converts markdown to HTML
- * 4. Transforms custom note elements
- * 5. Renders math expressions with KaTeX
- * 6. Formats and finalizes the HTML document
- * 7. Injects SVG icons
- *
- * @param doc - Raw note document content
- * @param noteCssPath - URI to the note CSS stylesheet
- * @param ghmCssPath - URI to the GitHub Markdown CSS stylesheet
- * @param katexCssPath - URI to the KaTeX CSS stylesheet
- * @param featherSvgPath - Path to the Feather SVG icon file
- * @returns Promise resolving to the final HTML document
+ * @param doc - Raw note document content.
+ * @param noteCssPath - Path to the note CSS stylesheet (optional).
+ * @param ghmCssPath - Path to the GitHub Markdown CSS stylesheet (optional).
+ * @param katexCssPath - Path to the KaTeX CSS stylesheet (optional).
+ * @param workspacePath - Base path for resolving relative image links.
+ * @param featherSvgPath - Path to the Feather SVG icon file.
+ * @param theme - Optional light/dark theme applied via `data-theme`.
+ * @returns Promise resolving to the final standalone HTML document.
  */
 export default async function noteProcessConvert(
   doc: string,
@@ -59,51 +37,26 @@ export default async function noteProcessConvert(
   const totalLines = doc.split("\n").length;
   extendMapArray(totalLines);
 
-  const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter((uri) => uri !== undefined);
+  const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter(
+    (uri) => uri !== undefined && uri !== null,
+  );
 
-  const vfile = await unified()
-    .use(noteParsePlugin) // Custom parser processes raw text first
-    .use(noteBoxParsePlugin) // Custom parser processes box syntax
-    // .use(() => (ast: NoteNode) => {
-    //   console.log("After remarkParse");
-    //   console.log(prettyPrint(ast)); // Debug intermediate tree
-    // })
-    .use(remarkImgLinks, { absolutePath: workspacePath + "/" })
-    .use(remarkRehype) // Convert Markdown parts to HTML
-    .use(rehypeKatex) // Add KaTeX support
-    .use(noteTransformPlugin, 0, 0, true) // Transform custom AST
-    // .use(() => (ast: NoteNode) => {
-    //   console.log("After remarkRehype");
-    //   console.log(prettyPrint(ast)); // Debug after custom compiler
-    // })
-    .use(rehypeStarryNight)
-    .use(rehypeDocument, {
-      css: cssList,
-    })
+  const vfile = await createCorePipeline({
+    imgBase: workspacePath,
+    baseLine: 0,
+    fatherId: 0,
+    labelRoot: true,
+  })
+    .use(rehypeDocument, { css: cssList as string[] })
     .use(rehypeFormat)
-    .use(rehypeStringify) // Stringify the final HTML
+    .use(rehypeStringify)
     .process(doc);
-
-  // console.log("Total lines:", totalLines);
-  // console.log("Map:", map);
-  // console.log("Map Start Line:", mapStartLine);
-  // console.log("Map End Line:", mapEndLine);
 
   const htmlString = String(vfile);
 
-  // Read and inject SVG sprite for icons
+  // Read and inject the Feather icon sprite, then apply the theme.
   const svgContent = fs.readFileSync(featherSvgPath, "utf8");
-
-  // Insert the SVG sprite into the HTML before closing body tag
-  const bodyCloseTag = "</body>";
-  const svgTag = `<div style="display:none">${svgContent}</div>\n`;
-
-  let finalHtml = htmlString.replace(bodyCloseTag, svgTag + bodyCloseTag);
-
-  if (theme) {
-    // Add data-theme attribute to <body> tag
-    finalHtml = finalHtml.replace(/<body([^>]*)>/, `<body$1 data-theme="${theme}">`);
-  }
+  const finalHtml = applyTheme(injectSvgSprite(htmlString, svgContent), theme);
 
   return finalHtml;
 }

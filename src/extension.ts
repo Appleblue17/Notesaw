@@ -11,7 +11,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import * as path from "path";
-import { noteProcessInit, noteProcess } from "./note-extention.ts";
+import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
 import {
   counter,

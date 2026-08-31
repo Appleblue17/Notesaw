@@ -97,13 +97,17 @@ function getNewId(): number {
   return counter;
 }
 export function extendMapArray(totalLines: number) {
-  if (totalLines > map.length) {
+  if (totalLines > map.length - 1) {
+    const prevLength = map.length; // current alloc length (indices 0..prevLength-1)
     map.length = totalLines + 1;
-    for (let i = map.length; i <= totalLines; i++) map[i] = undefined;
+    // Explicitly fill the newly extended slots (indices prevLength..totalLines) with
+    // undefined. JS sparse arrays default to `undefined` on access, but stating it
+    // makes the intent clear and mirrors extend/shrink symmetry.
+    for (let i = prevLength; i <= totalLines; i++) map[i] = undefined;
   }
 }
 export function shrinkMapArray(totalLines: number) {
-  if (totalLines < map.length) {
+  if (totalLines < map.length - 1) {
     map.length = totalLines + 1;
   }
 }
