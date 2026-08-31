@@ -2,6 +2,32 @@ let scrollSyncMode = "instant"; // default mode
 let scrollSyncThreshold = 0.1; // default threshold (10% of viewport height)
 let crossPageThreshold = 1; // default cross-page threshold (1 pages)
 
+// Bridge back to the extension host. Falls back to a no-op outside a webview
+// (e.g. when this script is unit-tested in plain DOM).
+let vscode = null;
+try {
+  vscode = acquireVsCodeApi();
+} catch (e) {
+  vscode = null;
+}
+
+let lastRefreshRequest = 0;
+
+/**
+ * Asks the extension to fully re-render the preview. Used as a self-healing
+ * fallback when a partial (incremental) DOM update cannot locate its target
+ * elements, instead of silently stalling the preview.
+ */
+function requestFullRefresh(reason) {
+  if (!vscode) return;
+  // Throttle to at most one request per 200ms to avoid a message storm.
+  const now = Date.now();
+  if (now - lastRefreshRequest < 200) return;
+  lastRefreshRequest = now;
+  vscode.postMessage({ command: "requestFullRefresh", reason });
+  console.warn("[notesaw] Requesting full preview refresh:", reason);
+}
+
 // morphdom is available globally via UMD
 function updateHtml(newHtml) {
   morphdom(document.getElementsByClassName("markdown-body")[0], newHtml);
@@ -9,30 +35,44 @@ function updateHtml(newHtml) {
 
 function partialUpdateHtml(newHtml, x, y, fat) {
   const markdownBody = document.getElementsByClassName("markdown-body")[0];
-  if (!markdownBody) return;
+  if (!markdownBody) {
+    requestFullRefresh("markdown-body missing");
+    return;
+  }
 
-  // 解析 newHtml 为 DOM 节点集合
+  // Parse newHtml into a list of sibling nodes. The fragment is wrapped in a
+  // single <div class="markdown-body"> root, so its children are the siblings
+  // to insert. Fall back to the whole fragment when the shape is unexpected.
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = newHtml;
-  const newChildren = Array.from(tempDiv.childNodes[0].childNodes);
-  // console.log("newChildren:", newChildren);
+  let newChildren;
+  if (
+    tempDiv.childNodes.length === 1 &&
+    tempDiv.firstChild.nodeType === Node.ELEMENT_NODE
+  ) {
+    newChildren = Array.from(tempDiv.firstChild.childNodes);
+  } else {
+    newChildren = Array.from(tempDiv.childNodes);
+  }
 
   // Find the parent element (fat) in the current DOM
   const parent = document.getElementById(fat);
-  if (!parent) return;
+  if (!parent) {
+    requestFullRefresh("parent id not found: " + fat);
+    return;
+  }
 
   // Both x and y are children of fat, and x comes before y
   const children = Array.from(parent.childNodes);
   const startIdx = children.findIndex((node) => node.id === String(x));
   const endIdx = children.findIndex((node) => node.id === String(y));
 
-  // console.log("Found indices:", startIdx, endIdx);
-
-  if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
-  // console.log("Replacing nodes between indices:", startIdx, endIdx);
+  if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+    requestFullRefresh("target range not found: x=" + x + " y=" + y + " fat=" + fat);
+    return;
+  }
 
   const refNode = children[endIdx].nextSibling;
-  // console.log("refNode:", refNode);
 
   // Delete all nodes from startIdx to endIdx (inclusive)
   for (let i = startIdx; i <= endIdx; i++) {

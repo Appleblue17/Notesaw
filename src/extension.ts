@@ -325,6 +325,22 @@ export function activate(context: vscode.ExtensionContext) {
             null,
             context.subscriptions,
           );
+
+          // Handle messages from the webview. Currently used as a self-healing
+          // fallback: when an incremental DOM update cannot be located, the
+          // webview asks for a full refresh instead of silently stalling.
+          panel.webview.onDidReceiveMessage(
+            (message) => {
+              if (message.command === "requestFullRefresh") {
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document.languageId === "markdown" && panel) {
+                  handleDocChange(editor, editor.document);
+                }
+              }
+            },
+            null,
+            context.subscriptions,
+          );
         }
 
         // Show the panel next to the editor
