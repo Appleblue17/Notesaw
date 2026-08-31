@@ -69,6 +69,9 @@ export async function noteProcessInit(
  * Renders a Notesaw document (or an incremental fragment) to a bare HTML snippet
  * that the webview can merge into the existing preview DOM.
  *
+ * Retained as a thin, webview-facing helper over the shared core so the extension's
+ * `export to HTML` (which uses a bare fragment) keeps its existing behaviour.
+ *
  * @param doc - Source text to render.
  * @param baseLine - Line offset for position mapping (0 for a full document).
  * @param fatherId - Parent block ID the rendered fragments attach under.

@@ -14,17 +14,15 @@ import * as path from "path";
 import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
 import {
-  counter,
   setCounter,
   map,
   mapStartLine,
   mapEndLine,
   mapDepth,
   mapFather,
-  extendMapArray,
-  shrinkMapArray,
 } from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
+import { IncrementalRenderer, type EditorDoc, type LineChange } from "./incremental-renderer.ts";
 import puppeteer from "puppeteer";
 
 type TextChangeMessage = {
@@ -32,7 +30,22 @@ type TextChangeMessage = {
   change: vscode.TextDocumentContentChangeEvent;
 };
 
-let totalLines = 0;
+/** Adapts a vscode TextDocument to the minimal surface the render engine needs. */
+function makeEditorDoc(document: vscode.TextDocument): EditorDoc {
+  return {
+    lineCount: document.lineCount,
+    lineText: (line) => document.lineAt(line - 1).text,
+    getTextBetweenLines: (start, end) => {
+      const range = new vscode.Range(
+        start - 1,
+        0,
+        end - 1,
+        document.lineAt(end - 1).text.length,
+      );
+      return document.getText(range);
+    },
+  };
+}
 
 /**
  * Activates the Notesaw extension
@@ -47,13 +60,17 @@ export function activate(context: vscode.ExtensionContext) {
   let mapLast: (number | undefined)[] = []; // Maps editor line numbers to block IDs for scrolling
   let mapNext: (number | undefined)[] = []; // Maps editor line numbers to next block IDs for boundary detection
 
+  // Shared incremental-rendering engine (single source of truth for partial
+  // updates; also exercised directly by the unit-test suite).
+  const renderer = new IncrementalRenderer();
+
   // Message queue for pending text changes to throttle updates
   const messageQueue: TextChangeMessage[] = [];
   let isProcessing = false;
 
   const cleanUp = () => {
     // console.log("Cleaning up...");
-    totalLines = 0;
+    renderer.reset();
     activeCursorLine = 0;
     visibleRange = undefined;
     mapLast = [];
@@ -113,23 +130,13 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleDocChange = async (editor: vscode.TextEditor, document: vscode.TextDocument) => {
     if (!panel) return;
-    totalLines = editor.document.lineCount;
-    extendMapArray(totalLines);
-
-    // console.log("Start rendering document in preview...");
-    const html = await noteProcess(document.getText(), 0, 0, true);
-    // console.log(html);
+    const html = await renderer.fullRender(makeEditorDoc(document), true);
     updateMapLastNext();
 
     panel.webview.postMessage({
       command: "updateHtml",
       html,
     });
-
-    // console.log("Total lines:", totalLines);
-    // console.log("Map:", map);
-    // console.log("Map Start Line:", mapStartLine);
-    // console.log("Map End Line:", mapEndLine);
 
     handlePreviewSync();
   };
@@ -138,124 +145,29 @@ export function activate(context: vscode.ExtensionContext) {
     if (!panel) return;
     const startLine = change.range.start.line + 1;
     const endLine = change.range.end.line + 1;
-    const textLines = change.text.split(/\r?\n/).length;
-    // console.log("/------ Start Handling Change ------/");
-    // console.log("startLine:", startLine, "endLine:", endLine, "textLines:", textLines);
 
-    const getTextFromLineRange = (start: number, end: number) => {
-      const range = new vscode.Range(
-        start - 1,
-        0,
-        end - 1,
-        editor.document.lineAt(end - 1).text.length,
-      );
-      return editor.document.getText(range);
+    const lineChange: LineChange = {
+      startLine,
+      endLine,
+      text: change.text,
     };
-    const findLCA = (x: number, y: number) => {
-      while (mapDepth[x] > mapDepth[y]) x = mapFather[x];
-      while (mapDepth[y] > mapDepth[x]) y = mapFather[y];
-      if (x === y) return [x, x, mapFather[x]];
+    const decision = await renderer.update(makeEditorDoc(editor.document), lineChange);
 
-      while (mapFather[x] !== mapFather[y]) {
-        x = mapFather[x];
-        y = mapFather[y];
-      }
-      return [x, y, mapFather[x]];
-    };
-
-    const newEndLine = startLine + textLines - 1;
-    const deltaLength = newEndLine - endLine;
-
-    let last = mapLast[startLine] !== undefined ? mapLast[startLine] : mapNext[startLine];
-    let next = mapNext[endLine] !== undefined ? mapNext[endLine] : mapLast[endLine];
-    if (last === undefined || next === undefined) {
-      handleDocChange(editor, editor.document);
+    if (decision.kind === "full") {
+      // Affected blocks could not be determined; fall back to a full re-render.
+      await handleDocChange(editor, editor.document);
       return;
-    }
-    const [x, y, fat] = findLCA(last, next);
-
-    // console.log("Last:", last, "Next:", next, "lca: ", x, y, fat);
-    // console.log("newEndLine:", newEndLine, "deltaLength:", deltaLength);
-
-    const xLine = Math.min(mapStartLine[x], startLine);
-    const yLine = Math.max(mapEndLine[y], endLine);
-    const newYLine = yLine + deltaLength;
-
-    // console.log("xLine:", xLine, "yLine:", yLine, "newYLine:", newYLine, "totalLines:", totalLines);
-
-    // Maintain map arrays to ensure they are in sync
-    const editorTotalLines = editor.document.lineCount;
-
-    const updateMapLines = (line: number, start: number, end: number) => {
-      while (line !== undefined) {
-        let flag = false;
-        if (start < mapStartLine[line]) {
-          mapStartLine[line] = start;
-          flag = true;
-        }
-        if (end > mapEndLine[line]) {
-          mapEndLine[line] = end;
-          flag = true;
-        }
-        if (!flag) break;
-        line = mapFather[line];
-        start = Math.min(start, mapStartLine[line]);
-        end = Math.max(end, mapEndLine[line]);
-      }
-    };
-
-    for (let i = 1; i <= counter; i++) {
-      if (mapEndLine[i] >= xLine) mapEndLine[i] += deltaLength;
-      if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
-    }
-
-    extendMapArray(editorTotalLines);
-    if (deltaLength > 0) {
-      for (let i = totalLines; i > yLine; i--) map[i + deltaLength] = map[i];
-    } else {
-      for (let i = yLine + 1; i <= totalLines; i++) map[i + deltaLength] = map[i];
-    }
-    for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
-    shrinkMapArray(editorTotalLines);
-
-    // console.log(mapStartLine);
-    // console.log(mapEndLine);
-    const raw = getTextFromLineRange(xLine, newYLine);
-    const html = await noteProcess(raw, xLine - 1, fat, false);
-    // console.log(mapStartLine);
-    // console.log(mapEndLine);
-
-    for (let i = 1; i <= counter; i++) {
-      updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
     }
 
     updateMapLastNext();
-    totalLines = editorTotalLines;
 
-    // console.log("changed range:", xLine, yLine, newYLine);
-    // console.log("Changed text:\n" + raw);
-    // console.log("Now map:");
-    // for (let i = 1; i <= totalLines; i++) {
-    //   console.log(i, map[i], mapLast[i], mapNext[i]);
-    // }
-    // console.log("Now tree:");
-    // for (let i = 1; i <= counter; i++) {
-    //   console.log(i, mapStartLine[i], mapEndLine[i], mapFather[i]);
-    // }
-    // console.log("Partial update:", { x, y, fat });
-    // console.log("update html:");
-    // console.log(html);
-
-    // Send message to update the preview
     panel.webview.postMessage({
       command: "partialUpdateHtml",
-      html,
-      x,
-      y,
-      fat,
+      html: decision.raw,
+      x: decision.x,
+      y: decision.y,
+      fat: decision.fat,
     });
-
-    // console.log("/------ End Handling Change ------/");
   };
 
   // Message queue for pending text changes to throttle updates
