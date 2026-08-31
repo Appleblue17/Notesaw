@@ -96,7 +96,7 @@ _Notesaw_ provides a set of pre-defined labels with associated icons for various
 
 To make it more convenient, _Notesaw_ set up a set of abbreviations for block labels. If the label name occurs in the table below, then it will be automatically substituted by the corresponding full label name, and so do the color.
 
-See [BLOCKLABEL.md](BLOCKLABEL.md) for the full list of icons and abbreviations.
+See [BLOCKLABEL.md](docs/BLOCKLABEL.md) for the full list of icons and abbreviations.
 
 #### Examples
 
@@ -223,9 +223,13 @@ The example above demonstrates part of the case for using box syntax effectively
 
 _Notesaw_ is built on top of the [unified](https://github.com/unifiedjs/unified) framework/ecosystem, which provides a powerful and flexible way to process and transform Markdown content.
 
-Basically, _Notesaw_ parser linearly sweeps through the document, recognizing and processing extended syntax elements as it goes, which makes it super efficient. The rest of the document is partitioned into pieces and each piece will be processed by [remark](https://github.com/remarkjs) to get the MDAST. _Notesaw_ then merges the MDASTs to the final MDAST, which is then processed into HAST and finally HTML by [rehype](https://github.com/rehypejs/rehype).
+**Parsing.** The _Notesaw_ parser (`src/parser.ts`) linearly sweeps through the document, recognizing and processing extended syntax elements (block, inline block, box) as it goes, which makes it super efficient. The rest of the document is partitioned into pieces, and each piece is processed by [remark](https://github.com/remarkjs) to obtain an MDAST fragment. _Notesaw_ then merges all the fragments into the final MDAST, which is processed into HAST and finally HTML by [rehype](https://github.com/rehypejs/rehype). Indentation (4 spaces or a tab) is what determines the hierarchy, so extended syntax is only recognized at the correct indentation level.
 
-During the process, _Notesaw_ maintains the position information of each element which are provided by [remark](https://github.com/remarkjs). These positions are crucial for scroll synchronization between the editor and the preview, as well as partial rendering.
+**Location tracking.** During the transformation stage (`src/transformer.ts`), every rendered element is assigned a stable `id`, and _Notesaw_ maintains a set of line-to-block maps (`map`, `mapStartLine`, `mapEndLine`, `mapDepth`, `mapFather`) that record which block each editor line belongs to. Combined with the position information provided by [remark](https://github.com/remarkjs), these maps are crucial for scroll synchronization between the editor and the preview, as well as partial rendering.
+
+**Rendering.** The generated HTML fragment is delivered to the webview (`assets/script/webview-script.js`), which either performs a full diff update via [morphdom](https://github.com/patrick-steele-idem/morphdom), or — for a text edit — re-processes only the minimal affected range and patches the corresponding DOM subtree in place. HTML/PDF export reuses the same core pipeline (`src/note-convert.ts`), with PDF generation handled by [Puppeteer](https://pptr.dev/).
+
+For more details, see [architecture.md](docs/architecture.md).
 
 ## Known Issues
 
@@ -238,7 +242,7 @@ Known Issues:
 
 ## Change Log
 
-For full change log, see [CHANGELOG.md](CHANGELOG.md).
+For full change log, see [CHANGELOG.md](docs/CHANGELOG.md).
 
 ### Progress
 
