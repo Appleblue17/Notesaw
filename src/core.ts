@@ -11,6 +11,7 @@
  */
 
 import { unified } from "unified";
+import { pathToFileURL } from "node:url";
 import remarkImgLinks from "@pondorasti/remark-img-links";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
@@ -34,7 +35,12 @@ export interface PipelineConfig {
 }
 
 function normalizeImgBase(imgBase: string | undefined): string {
-  if (!imgBase) return process.cwd() + "/";
+  if (!imgBase) {
+    // remark-img-links resolves images with `new URL(src, base)`, which demands a
+    // valid absolute URL base. A bare path like process.cwd() crashes, so fall back
+    // to a file:// URL rooted at the current working directory.
+    return pathToFileURL(process.cwd() + "/").href;
+  }
   return imgBase.endsWith("/") ? imgBase : imgBase + "/";
 }
 
