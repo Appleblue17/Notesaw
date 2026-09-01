@@ -141,7 +141,34 @@ export class IncrementalRenderer {
       return [x, y, mapFather[x]];
     };
 
-    const [x, y, fat] = findLCA(lastId as number, nextId as number);
+    const [x0, y0, fat0] = findLCA(lastId as number, nextId as number);
+
+    let x = x0;
+    let y = y0;
+    const fat = fat0;
+
+    // Finds the sibling of `id` (same father) whose span starts right after `id`'s
+    // start. Used to widen the incremental range across a structural re-parse.
+    const findNextSibling = (id: number): number | undefined => {
+      const father = mapFather[id];
+      const aroundStart = mapStartLine[id];
+      let best: { id: number; start: number } | undefined;
+      for (let i = 1; i <= counter; i++) {
+        if (i === id) continue;
+        if (mapFather[i] !== father) continue;
+        const s = mapStartLine[i];
+        if (s === undefined || s <= 0) continue;
+        if (s > aroundStart && (!best || s < best.start)) best = { id: i, start: s };
+      }
+      return best?.id;
+    };
+
+    // Right-edge extension: if the edit range reaches y's closing line, y may have
+    // swallowed its next sibling (that sibling's `}` acts as y's new closer, or the
+    // block boundary moved). Re-render through that sibling so the parser sees it.
+    if (endLine >= mapEndLine[y]) {
+      y = findNextSibling(y) ?? y;
+    }
 
     const xLine = Math.min(mapStartLine[x], startLine);
     const yLine = Math.max(mapEndLine[y], endLine);

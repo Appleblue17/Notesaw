@@ -104,13 +104,17 @@ describe("incremental renderer: DOM block consistency under edited pressure", ()
     const decision = await renderer.update(editor, ch);
     if (decision.kind === "partial" && decision.raw !== undefined) {
       host.window.partialUpdateHtml(decision.raw, decision.x, decision.y, decision.fat);
+    } else if (decision.kind === "full") {
+      host.window.document.body.innerHTML = await renderer.fullRender(editor, true);
     }
     return host.refreshCount();
   }
 
-  // Multi-level closing fixed the static/parsing side and long whole-block runs now
-  // converge. Random edits that tear a block's structure still expose the incremental
-  // interval-coverage gap (a sibling swallowed by an unclosed block is not re-rendered).
+  // Right-edge extension + multi-level closing fix single-shot structural edits
+  // (deleted `}`) and long whole-block runs. Harassing a document via repeated
+  // destructive in-place setLine edits (→ quote/blank) can still put it in a broken
+  // transitional state where a later incremental update cannot locate its targets.
+  // Recorded as expected failure; deeper handling (structure-health detection) TBD.
   it.fails("keeps DOM block contents equal to a full render across 150 random edits", async () => {
     const totalSteps = 150;
     const segment = 5;

@@ -52,6 +52,8 @@ describe("incremental: single-step DOM oracle", () => {
     const decision = await renderer.update(editor, change);
     if (decision.kind === "partial" && decision.raw !== undefined) {
       host.window.partialUpdateHtml(decision.raw, decision.x, decision.y, decision.fat);
+    } else if (decision.kind === "full") {
+      host.window.document.body.innerHTML = await renderer.fullRender(editor, true);
     }
     const inc = blockContents(host.window);
     // clean full render of resulting doc (isolated state)
@@ -76,11 +78,9 @@ describe("incremental: single-step DOM oracle", () => {
     await expectSingleStep(e, e.delete(2, 2), "delete '{' line");
   });
 
-  // Incremental range coverage: deleting a block's closing brace can make it swallow
-  // its next sibling, but the incremental interval still only covers the edited block
-  // (B is not re-rendered), so the DOM diverges from a full render. Multi-level closing
-  // fixed the static/parsing side; this specific incremental case is still open.
-  it.fails("delete a block's closing brace line (})", async () => {
+  // Right-edge extension handles a deleted closing brace by widening the interval
+  // to the next sibling, so the DOM stays consistent with a full render.
+  it("delete a block's closing brace line (})", async () => {
     const e = await freshWithDoc(DOC);
     await expectSingleStep(e, e.delete(4, 4), "delete '}' line");
   });
