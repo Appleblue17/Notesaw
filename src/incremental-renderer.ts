@@ -215,6 +215,24 @@ export class IncrementalRenderer {
       labelRoot: false,
     });
 
+    // Clean up ghost ids: a re-render replaces the affected sub-tree with freshly
+    // allocated ids, but the spans of the OLD ids it displaced stay in the span
+    // arrays and, because the line-shift loop (above) also moves them, they end up
+    // overlapping the live blocks. If any later edit reads `map`/boundaries it can
+    // then pick up one of these stale ids (e.g. an inverted LCA), producing a
+    // partial update whose x/y cannot be located. An id that no line in `map`
+    // references is no longer part of the current structure, so invalidate it.
+    const live = new Set<number>();
+    for (const v of map) {
+      if (v !== undefined && v > 0) live.add(v);
+    }
+    for (let i = 1; i <= counter; i++) {
+      if (mapStartLine[i] > 0 && !live.has(i)) {
+        mapStartLine[i] = -1;
+        mapEndLine[i] = -1;
+      }
+    }
+
     for (let i = 1; i <= counter; i++) {
       updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
     }
