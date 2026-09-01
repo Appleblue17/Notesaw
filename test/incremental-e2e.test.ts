@@ -76,15 +76,11 @@ describe("incremental renderer + webview: end-to-end id alignment", () => {
   });
 
   /**
-   * SKIPPED — known-bug repro (R14). This sequence ("insert block N at top when a
-   * previous render ran in the same process") fails: the partial engine's span
-   * bookkeeping gets polluted and a later `partialUpdateHtml` cannot locate its
-   * targets (drift=1). Reproduces only when the two tests above ran first, i.e.
-   * it depends on residual transformer-global array values surviving a (`length=1`)
-   * reset. Being addressed by the patch-based incremental update protocol; kept
-   * here as the reproduction script.
+   * Regression for the R14 span-pollution bug: with the root cause fixed, inserting
+   * standalone blocks at the top then deleting them must never make the webview
+   * partial update fall back to a full refresh.
    */
-  it.skip("stays aligned through standalone block inserts and whole-block deletes", async () => {
+  it("stays aligned through standalone block inserts and whole-block deletes", async () => {
     const editor = await fullRenderIntoDom(
       ["@def A {", "    one", "}", "", "@def B {", "    two", "}"].join("\n"),
     );

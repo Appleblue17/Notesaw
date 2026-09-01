@@ -1,5 +1,12 @@
 import type { EditorDoc, LineChange } from "../../src/incremental-renderer.ts";
-import { setCounter, map, mapStartLine, mapEndLine } from "../../src/transformer.ts";
+import {
+  setCounter,
+  map,
+  mapFather,
+  mapDepth,
+  mapStartLine,
+  mapEndLine,
+} from "../../src/transformer.ts";
 import { renderFragment } from "../../src/core.ts";
 
 /** Resets the transformer's global bookkeeping, mirroring the extension's cleanUp(). */
@@ -7,6 +14,10 @@ export function resetEngineState() {
   setCounter(0);
   map.length = 1;
   map[0] = undefined;
+  mapFather.length = 1;
+  mapFather[0] = 0;
+  mapDepth.length = 1;
+  mapDepth[0] = -1;
   mapStartLine.length = 1;
   mapStartLine[0] = -1;
   mapEndLine.length = 1;

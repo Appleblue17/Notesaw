@@ -96,6 +96,34 @@ function getNewId(): number {
   counter++;
   return counter;
 }
+
+/**
+ * Ensures the per-id span arrays are large enough to hold index `id`, then
+ * records that element's `depth`/`fatherId`/`startLine`/`endLine` at `id`.
+ *
+ * This replaces the previous `push`-based registration. `push` writes to the
+ * `length` slot, silently corrupting the id→index invariant whenever the arrays
+ * are longer than they should be (e.g. leftover elements from prior renders
+ * that were only truncated to `length = 1`, not cleared). Writing by explicit
+ * index keeps `spanArrays[id] === element id` regardless of prior state.
+ */
+function recordNode(
+  id: number,
+  depth: number,
+  fatherId: number,
+  startLine: number,
+  endLine: number,
+): void {
+  const need = id + 1;
+  if (mapDepth.length < need) mapDepth.length = need;
+  if (mapFather.length < need) mapFather.length = need;
+  if (mapStartLine.length < need) mapStartLine.length = need;
+  if (mapEndLine.length < need) mapEndLine.length = need;
+  mapDepth[id] = depth;
+  mapFather[id] = fatherId;
+  mapStartLine[id] = startLine;
+  mapEndLine[id] = endLine;
+}
 export function extendMapArray(totalLines: number) {
   if (totalLines > map.length - 1) {
     const prevLength = map.length; // current alloc length (indices 0..prevLength-1)
@@ -171,10 +199,7 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
         ...node.properties,
         id: newId,
       };
-      mapDepth.push(mapDepth[fatherId] + 1);
-      mapFather.push(fatherId);
-      mapStartLine.push(startLine);
-      mapEndLine.push(endLine);
+      recordNode(newId, mapDepth[fatherId] + 1, fatherId, startLine, endLine);
     }
     const id: number = Number(node.properties.id);
     const depth = mapDepth[id];
@@ -197,10 +222,7 @@ function transformNote(tree: Element, baseLine: number, fatherId: number, labelR
           ...child.properties,
           id: newId,
         };
-        mapDepth.push(depth + 1);
-        mapFather.push(id);
-        mapStartLine.push(childStartLine);
-        mapEndLine.push(childEndLine);
+        recordNode(newId, depth + 1, id, childStartLine, childEndLine);
 
         if (firstChild) {
           for (let i = currentLine; i < childStartLine; i++) map[i] = id;

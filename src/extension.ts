@@ -78,10 +78,15 @@ export function activate(context: vscode.ExtensionContext) {
     setCounter(0);
 
     map.length = 1;
+    map[0] = undefined;
     mapStartLine.length = 1;
+    mapStartLine[0] = -1;
     mapEndLine.length = 1;
+    mapEndLine[0] = -1;
     mapDepth.length = 1;
+    mapDepth[0] = -1;
     mapFather.length = 1;
+    mapFather[0] = 0;
 
     messageQueue.length = 0;
     isProcessing = false;
