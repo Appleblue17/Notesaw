@@ -43,3 +43,16 @@ export function bootstrapWebview(): WebviewHost {
     refreshCount: () => posted.filter((m) => m.command === "requestFullRefresh").length,
   };
 }
+
+/**
+ * Ordered text content of every `.block-container` in the preview body — the
+ * DOM-level truth that a user actually sees. Used as the correctness oracle for
+ * incremental rendering (id-independent, unlike the span arrays).
+ */
+export function blockContents(window: JSDOM["window"]): string[] {
+  const mb = window.document.querySelector(".markdown-body");
+  if (!mb) return [];
+  return Array.from(mb.querySelectorAll(".block-container")).map((el: any) =>
+    el.textContent.replace(/\s+/g, " ").trim(),
+  );
+}

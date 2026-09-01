@@ -1,112 +1,50 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { IncrementalRenderer } from "../src/incremental-renderer.ts";
-import {
-  MockEditor,
-  resetEngineState,
-  blockFingerprint,
-  groundTruthFingerprint,
-} from "./helpers/render-sim.ts";
+import { DomOracle } from "./helpers/dom-oracle.ts";
 
 /**
- * Incremental-vs-full consistency: after a sequence of edits, the incremental
- * engine's block fingerprint must equal the clean full render of the final text.
+ * DOM-based incremental consistency: after an edit, the preview's `.block-container`
+ * contents must equal a clean full render of the result. Uses the trustworthy DOM
+ * oracle (id-independent), not the earlier unreliable span-map fingerprints.
  */
-describe("incremental renderer: consistency with full render", () => {
-  let renderer: IncrementalRenderer;
+describe("incremental renderer: DOM consistency", () => {
+  let oracle: DomOracle;
 
   beforeEach(() => {
-    resetEngineState();
-    renderer = new IncrementalRenderer();
+    oracle = new DomOracle();
   });
 
-  async function expectConverged(editor: MockEditor) {
-    const truth = await groundTruthFingerprint(editor.text);
-    expect(blockFingerprint(renderer.snapshot())).toEqual(truth);
-  }
-
-  it("converges after deleting content inside a block", async () => {
-    const init = [
-      "intro",
-      "",
-      "@example hello",
-      "{",
-      "    line one",
-      "    line two",
-      "}",
-      "",
-      "trailer",
-    ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    const change = editor.delete(5, 5);
-    editor.apply(change);
-    await renderer.update(editor, change);
-
-    await expectConverged(editor);
+  it("deleting content inside a block", async () => {
+    const init = ["intro", "", "@example hello", "{", "    line one", "    line two", "}", "", "trailer"].join("\n");
+    const e = await oracle.seed(init);
+    const { inc, truth } = await oracle.singleStep(e, e.delete(5, 5));
+    expect(inc).toEqual(truth);
   });
 
-  it("converges after inserting a new block between two existing ones", async () => {
-    const init = [
-      "@example one",
-      "{",
-      "    body",
-      "}",
-      "",
-      "@note two",
-      "{",
-      "    body",
-      "}",
-    ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    const change = editor.insertBefore(6, "@tip mid\n{\n    inserted\n}");
-    editor.apply(change);
-    await renderer.update(editor, change);
-
-    await expectConverged(editor);
+  it("inserting a new block between two existing ones", async () => {
+    const init = ["@example one", "{", "    body", "}", "", "@note two", "{", "    body", "}"].join("\n");
+    const e = await oracle.seed(init);
+    const change = e.insertBefore(6, "@tip mid\n{\n    inserted\n}");
+    const { inc, truth } = await oracle.singleStep(e, change);
+    expect(inc).toEqual(truth);
   });
 
-  it("converges after deleting an entire block", async () => {
-    const init = [
-      "@example one",
-      "{",
-      "    body",
-      "}",
-      "",
-      "@note two",
-      "{",
-      "    body",
-      "}",
-    ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    const change = editor.delete(6, 9);
-    editor.apply(change);
-    await renderer.update(editor, change);
-
-    await expectConverged(editor);
+  it("deleting an entire block", async () => {
+    const init = ["@example one", "{", "    body", "}", "", "@note two", "{", "    body", "}"].join("\n");
+    const e = await oracle.seed(init);
+    const { inc, truth } = await oracle.singleStep(e, e.delete(6, 9));
+    expect(inc).toEqual(truth);
   });
 
-  it("converges after a multi-step insert and delete sequence", async () => {
+  it("multi-step insert and delete sequence (DOM checked at each step)", async () => {
     const init = ["@def A {", "    one", "}", "", "@def B {", "    two", "}"].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
+    const e = await oracle.seed(init);
 
-    const ins1 = editor.insertBefore(4, "some *text*");
-    editor.apply(ins1);
-    await renderer.update(editor, ins1);
+    const ins = e.insertBefore(4, "some *text*");
+    const r1 = await oracle.singleStep(e, ins);
+    expect(r1.inc).toEqual(r1.truth);
 
-    const del = editor.delete(4, 4);
-    editor.apply(del);
-    await renderer.update(editor, del);
-
-    const ins2 = editor.insertBefore(1, "@note header\n{\n    lead\n}");
-    editor.apply(ins2);
-    await renderer.update(editor, ins2);
-
-    await expectConverged(editor);
+    const del = e.delete(4, 4);
+    const r2 = await oracle.singleStep(e, del);
+    expect(r2.inc).toEqual(r2.truth);
   });
 });

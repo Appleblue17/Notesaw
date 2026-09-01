@@ -1,30 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { IncrementalRenderer } from "../src/incremental-renderer.ts";
-import {
-  MockEditor,
-  resetEngineState,
-  lineOwnFingerprint,
-  groundTruthLineOwnership,
-} from "./helpers/render-sim.ts";
+import { DomOracle } from "./helpers/dom-oracle.ts";
 
-/**
- * Edge-case oracle tests: nested blocks, large multi-line deletions, and
- * shrinking the document toward empty must all stay consistent with a clean
- * full render.
- */
-describe("incremental renderer: edge cases", () => {
-  let renderer: IncrementalRenderer;
+describe("incremental renderer: DOM consistency (edge cases)", () => {
+  let oracle: DomOracle;
 
   beforeEach(() => {
-    resetEngineState();
-    renderer = new IncrementalRenderer();
+    oracle = new DomOracle();
   });
-
-  async function expectConverged(editor: MockEditor) {
-    const truth = await groundTruthLineOwnership(editor.text);
-    expect(lineOwnFingerprint(renderer.snapshot())).toEqual(truth);
-    expect(editor.lineCount).toBe(truth.length);
-  }
 
   it("handles nested blocks inside a block", async () => {
     const init = [
@@ -37,80 +19,33 @@ describe("incremental renderer: edge cases", () => {
       "    trailing",
       "}",
     ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    const change = editor.delete(5, 5); // remove one line of the nested body
-    editor.apply(change);
-    await renderer.update(editor, change);
-    await expectConverged(editor);
-
-    const change2 = editor.insertBefore(3, "    @tip leaf\n    {\n        extra\n    }");
-    editor.apply(change2);
-    await renderer.update(editor, change2);
-    await expectConverged(editor);
+    let e = await oracle.seed(init);
+    const r1 = await oracle.singleStep(e, e.delete(5, 5));
+    expect(r1.inc).toEqual(r1.truth);
+    const r2 = await oracle.singleStep(e, e.insertBefore(3, "    @tip leaf\n    {\n        extra\n    }"));
+    expect(r2.inc).toEqual(r2.truth);
   });
 
-  it("survives a large multi-block deletion (negative delta)", async () => {
-    const init = Array.from({ length: 8 }, (_, i) => [
-      `@def Block${i} {`,
-      "    content",
-      "}",
-      "",
-    ]).flat().join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    // Delete a large swath covering ~3 full blocks
-    const change = editor.delete(5, 16);
-    editor.apply(change);
-    const decision = await renderer.update(editor, change);
-    if (decision.kind === "partial") await expectConverged(editor);
+  it("survives a large multi-block deletion", async () => {
+    const init = Array.from({ length: 8 }, (_, i) => [`@def Block${i} {`, "    content", "}", ""]).flat().join("\n");
+    const e = await oracle.seed(init);
+    const { inc, truth } = await oracle.singleStep(e, e.delete(5, 16));
+    expect(inc).toEqual(truth);
   });
 
-  it("shrinks toward an empty/short document", async () => {
-    const init = [
-      "@def A {",
-      "    one",
-      "}",
-      "@def B {",
-      "    two",
-      "}",
-      "@def C {",
-      "    three",
-      "}",
-    ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    // delete 8 lines -> leaves 1 line
-    const change = editor.delete(2, 9);
-    editor.apply(change);
-    const decision = await renderer.update(editor, change);
-    if (decision.kind === "partial") await expectConverged(editor);
+  it("shrinks toward a short document", async () => {
+    const init = ["@def A {", "    one", "}", "@def B {", "    two", "}", "@def C {", "    three", "}"].join("\n");
+    const e = await oracle.seed(init);
+    const { inc, truth } = await oracle.singleStep(e, e.delete(2, 9));
+    expect(inc).toEqual(truth);
   });
 
-  it("handles editing right around a block's opening brace line", async () => {
-    const init = [
-      "@example hello",
-      "{",
-      "    body",
-      "}",
-      "# heading",
-    ].join("\n");
-    const editor = new MockEditor(init);
-    await renderer.fullRender(editor, true);
-
-    // insert a paragraph between the block and heading
-    const ins = editor.insertBefore(5, "between text");
-    editor.apply(ins);
-    await renderer.update(editor, ins);
-    await expectConverged(editor);
-
-    // replace the block's first content line
-    const rep = editor.setLine(3, "    changed body");
-    editor.apply(rep);
-    await renderer.update(editor, rep);
-    await expectConverged(editor);
+  it("edits right around a block's opening brace line", async () => {
+    const init = ["@example hello", "{", "    body", "}", "# heading"].join("\n");
+    let e = await oracle.seed(init);
+    const r1 = await oracle.singleStep(e, e.insertBefore(5, "between text"));
+    expect(r1.inc).toEqual(r1.truth);
+    const r2 = await oracle.singleStep(e, e.setLine(3, "    changed body"));
+    expect(r2.inc).toEqual(r2.truth);
   });
 });

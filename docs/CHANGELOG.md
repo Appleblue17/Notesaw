@@ -10,7 +10,12 @@
 
 ### Features
 
-- Add a Vitest-based test suite (44 tests) covering the parser, transformer, render adapters, incremental engine, randomized edits and webview DOM updates.
+- Add a Vitest-based test suite covering the parser, transformer, render adapters, incremental engine, randomized edits and webview DOM updates (49 passing + 3 recorded known failures).
+- Rebuild the incremental-rendering correctness oracle on the DOM (`.block-container` contents) instead of the unreliable span-map fingerprints; correct handling of `full` decisions when an incremental update legitimately falls back to a full render.
+
+### Known Issues
+
+- Structural edits that tear a block's `{`/`}` (e.g. deleting a closing brace), or a document reaching a broken transitional state after many edits, can leave the incremental preview DOM diverging from a full render (recorded as `it.fails` in `incremental-struct`, `incremental-stress` and `incremental-press`).
 
 ### Bug Fixes
 
