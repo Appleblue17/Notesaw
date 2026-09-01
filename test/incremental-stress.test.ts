@@ -37,14 +37,10 @@ function seedDoc(): string {
 }
 
 describe("incremental renderer: long-run DOM consistency (whole-block edits)", () => {
-  // KNOWN LIMITATION: random whole-block insert/delete edits eventually produce a
-  // document with a torn block (a `delBlock` range can cut part of a block, leaving
-  // it unclosed). Once the document is in such a broken transitional state, an
-  // incremental update can fail to locate its partial targets (drift=1 → full
-  // refresh). This is an engine robustness issue for structural/transitional states,
-  // not a test bug. Recorded as an expected failure; un-mark when the engine handles
-  // broken transitional documents cleanly by always degrading safely without drift.
-  it.fails("200 whole-block insert/delete edits keep DOM == full render (per segment)", async () => {
+  // Whole-block insert/delete edits can leave a torn block transiently open; the
+  // multi-level closing fix (a shallow `}` / EOF closes all deeper open blocks)
+  // keeps the incremental DOM aligned with a full render, so the long run converges.
+  it("200 whole-block insert/delete edits keep DOM == full render (per segment)", async () => {
     const oracle = new DomOracle();
     const totalSteps = 40;
     const segment = 5;

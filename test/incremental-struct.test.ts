@@ -76,9 +76,10 @@ describe("incremental: single-step DOM oracle", () => {
     await expectSingleStep(e, e.delete(2, 2), "delete '{' line");
   });
 
-  // KNOWN BUG: deleting a block's closing brace makes the incremental partial
-  // update leave the DOM inconsistent with a full render (the following block is
-  // not re-nested). Marked `fails` to record the repro; un-mark once fixed.
+  // Incremental range coverage: deleting a block's closing brace can make it swallow
+  // its next sibling, but the incremental interval still only covers the edited block
+  // (B is not re-rendered), so the DOM diverges from a full render. Multi-level closing
+  // fixed the static/parsing side; this specific incremental case is still open.
   it.fails("delete a block's closing brace line (})", async () => {
     const e = await freshWithDoc(DOC);
     await expectSingleStep(e, e.delete(4, 4), "delete '}' line");

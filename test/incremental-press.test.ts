@@ -108,12 +108,9 @@ describe("incremental renderer: DOM block consistency under edited pressure", ()
     return host.refreshCount();
   }
 
-  // KNOWN LIMITATION: random edits that can tear a block's structure (e.g. setting
-  // a block-body line to a quote/blank) allow the document to reach a broken
-  // transitional state; an incremental update then misses part of a block and the
-  // DOM diverges from a full render. Same robustness issue as the struct `}`-delete
-  // and the long-run stress case. Recorded as an expected failure; un-mark when
-  // the engine degrades safely (full) for such transitional states without drift.
+  // Multi-level closing fixed the static/parsing side and long whole-block runs now
+  // converge. Random edits that tear a block's structure still expose the incremental
+  // interval-coverage gap (a sibling swallowed by an unclosed block is not re-rendered).
   it.fails("keeps DOM block contents equal to a full render across 150 random edits", async () => {
     const totalSteps = 150;
     const segment = 5;

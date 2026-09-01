@@ -309,7 +309,7 @@ function parseNote(text: string): NoteNode {
       return parseBlockName();
     }
     function parseBlockName() {
-      if (input[index] !== "{" && input[index] !== " ") return nok();
+      if (input[index] !== "{" && input[index] !== " " && input[index] !== "\n") return nok();
       const start = index;
       let crossRow = false;
       while (index < input.length && input[index] !== "{") {
@@ -460,6 +460,21 @@ function parseNote(text: string): NoteNode {
       },
     ];
 
+  // Closes the block at the top of the stack at the given source offset `index`
+  // (the position just after its closing `}`, or `length` at EOF). The remaining
+  // text from the block's recorded `current` up to `index` is parsed as its content.
+  const closeTopBlock = (index: number) => {
+    if (blockStack.length <= 1) return; // never pop the root
+    const { node: selfNode, current: last } = blockStack.pop()!;
+    const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
+    if (selfNode.type === "block") {
+      if (ast) selfNode.children.push(ast);
+      indentLevel--;
+    }
+    selfNode.position!.end = getPosition(index + 1);
+    blockStack[blockStack.length - 1].current = index + 1;
+  };
+
   for (let index = 0; index < length; ) {
     const char = input[index];
 
@@ -500,29 +515,35 @@ function parseNote(text: string): NoteNode {
       index = endIndex;
       blockStack[blockStack.length - 1].current = index;
     } else {
-      if (char === "}" && columns[index] === (indentLevel - 1) * 4 + 1) {
-        const { node: selfNode, current: last } = blockStack.pop()!;
-
-        if (selfNode) {
-          const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
-          if (selfNode.type === "block") {
-            if (ast) selfNode.children.push(ast);
-            indentLevel--;
-          }
-
-          selfNode.position!.end = getPosition(index + 1);
-
-          // skip to the end of this line
-          while (index < length && input[index] !== "\n") index++;
-          blockStack[blockStack.length - 1].current = index + 1;
+      // Closing curly brace: closes the block at the indentation level it appears
+      // at, AND implicitly closes any deeper, still-open blocks inside it. A deeper
+      // `}` never matches, but a shallower one should tear everything down to it.
+      if (char === "}" && columns[index] <= (indentLevel - 1) * 4 + 1) {
+        // target level this `}` closes (1-based block level); count from stack top.
+        const targetStackLen = Math.max(1, (columns[index] - 1) / 4 + 1);
+        // Close any blocks deeper than the level this `}` sits at.
+        while (blockStack.length - 1 > targetStackLen) {
+          closeTopBlock(index);
         }
+        // And close the block at this `}`'s level, if there is one.
+        if (blockStack.length - 1 >= targetStackLen && targetStackLen >= 1) {
+          closeTopBlock(index);
+        }
+        // Skip past this line (the closing brace comment may follow).
+        while (index < length && input[index] !== "\n") index++;
+        blockStack[blockStack.length - 1].current = index + 1;
       }
       index++;
     }
   }
 
+  // EOF: implicitly close every block still left open (a "level-0" closing).
+  while (blockStack.length > 1) {
+    closeTopBlock(length);
+  }
+
   const { node, current: last } = blockStack[blockStack.length - 1];
-  const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4, last);
+  const ast = parseNativeMarkdown(input.slice(last, length), 0, last);
   if (ast) node.children.push(ast);
   blockStack[blockStack.length - 1].node.position!.end = getPosition(length);
 

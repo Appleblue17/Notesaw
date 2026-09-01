@@ -15,11 +15,13 @@
 
 ### Known Issues
 
-- Structural edits that tear a block's `{`/`}` (e.g. deleting a closing brace), or a document reaching a broken transitional state after many edits, can leave the incremental preview DOM diverging from a full render (recorded as `it.fails` in `incremental-struct`, `incremental-stress` and `incremental-press`).
+- Incremental interval coverage: deleting a block's closing brace (or other structural edits) can make it swallow a following sibling; the incremental range still covers only the edited block, so the DOM can diverge from a full render (recorded as `it.fails` in `incremental-struct` and `incremental-press`). Long whole-block edit sequences now converge after the multi-level closing fix.
 
 ### Bug Fixes
 
 - Fix partial-rendering span pollution: register each element's `father`/`depth`/`start`/`end` by explicit id index instead of `push`, so residual array values can no longer misassign them.
+- Recognize an unnamed block whose opening brace is on the following line (e.g. `@def\n{`); previously the whole block was skipped.
+- Implement multi-level closing: a shallower `}` (or EOF) now closes all deeper blocks still open, so nested blocks are no longer swallowed as raw text and long whole-block edit sequences stay DOM-consistent.
 - Fix `extendMapArray` dead loop and make array extension explicit.
 - Self-heal the preview when an incremental DOM update cannot locate its targets: the webview requests a full refresh (throttled) instead of silently stalling.
 
