@@ -1,19 +1,13 @@
 import type { EditorDoc, LineChange } from "../../src/incremental-renderer.ts";
-import { setCounter, map, mapFather, mapDepth, mapStartLine, mapEndLine } from "../../src/transformer.ts";
+import { defaultSpanState } from "../../src/transformer.ts";
 
-/** Resets the transformer's global bookkeeping, mirroring the extension's cleanUp(). */
+/**
+ * Resets the renderers' shared default span state. With per-renderer `SpanState`
+ * isolation this is mostly a no-op for correctness, but it keeps the module-default
+ * state clean for any caller that relies on it.
+ */
 export function resetEngineState() {
-  setCounter(0);
-  map.length = 1;
-  map[0] = undefined;
-  mapFather.length = 1;
-  mapFather[0] = 0;
-  mapDepth.length = 1;
-  mapDepth[0] = -1;
-  mapStartLine.length = 1;
-  mapStartLine[0] = -1;
-  mapEndLine.length = 1;
-  mapEndLine[0] = -1;
+  defaultSpanState.reset();
 }
 
 /** A tiny in-memory, line-oriented editor document satisfying the EditorDoc surface. */

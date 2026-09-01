@@ -11,7 +11,7 @@ import rehypeStringify from "rehype-stringify";
 import fs from "fs";
 
 import { createCorePipeline, injectSvgSprite, applyTheme } from "./core.ts";
-import { extendMapArray } from "./transformer.ts";
+import { SpanState } from "./transformer.ts";
 
 /**
  * Processes a Notesaw document and converts it to a standalone HTML document.
@@ -34,9 +34,6 @@ export default async function noteProcessConvert(
   featherSvgPath: string,
   theme: "light" | "dark" | undefined = "light"
 ): Promise<string> {
-  const totalLines = doc.split("\n").length;
-  extendMapArray(totalLines);
-
   const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter(
     (uri) => uri !== undefined && uri !== null,
   );
@@ -46,6 +43,7 @@ export default async function noteProcessConvert(
     baseLine: 0,
     fatherId: 0,
     labelRoot: true,
+    spanState: new SpanState(),
   })
     .use(rehypeDocument, { css: cssList as string[] })
     .use(rehypeFormat)

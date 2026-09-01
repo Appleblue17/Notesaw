@@ -18,7 +18,7 @@ import rehypeStarryNight from "rehype-starry-night";
 import rehypeStringify from "rehype-stringify";
 
 import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
-import { noteTransformPlugin } from "./transformer.ts";
+import { noteTransformPlugin, type SpanState } from "./transformer.ts";
 
 export interface PipelineConfig {
   /** Base path used to resolve relative image links (no trailing slash required). */
@@ -29,6 +29,8 @@ export interface PipelineConfig {
   fatherId?: number;
   /** Whether the root markdown-body wrapper should itself be assigned an ID. */
   labelRoot?: boolean;
+  /** Optional isolated span state; when provided the transform writes into it. */
+  spanState?: SpanState;
 }
 
 function normalizeImgBase(imgBase: string | undefined): string {
@@ -48,7 +50,7 @@ export function createCorePipeline(cfg: PipelineConfig = {}) {
     .use(remarkImgLinks, { absolutePath: normalizeImgBase(cfg.imgBase) })
     .use(remarkRehype)
     .use(rehypeKatex)
-    .use(noteTransformPlugin, cfg.baseLine ?? 0, cfg.fatherId ?? 0, cfg.labelRoot ?? false)
+    .use(noteTransformPlugin(cfg.spanState), cfg.baseLine ?? 0, cfg.fatherId ?? 0, cfg.labelRoot ?? false)
     .use(rehypeStarryNight);
 }
 

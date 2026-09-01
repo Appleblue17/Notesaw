@@ -7,23 +7,13 @@
  * the line→block maps shift, then delegates fragment rendering to the shared core.
  *
  * This is the SINGLE source of truth for incremental-update decisions: the VS Code
- * extension calls this engine; tests drive the same engine. It is intentionally
- * coupled to the global bookkeeping arrays in `src/transformer.ts` (and their
- * side effects during rendering) so it behaves exactly like the extension, so a
- * bug found by tests is the same bug the extension would hit.
+ * extension calls this engine; tests drive the same engine. It owns a private
+ * `SpanState` so its positional bookkeeping is isolated from any parallel render
+ * (a test-oracle full render no longer overwrites the engine's maps).
  */
 
 import { renderFragment } from "./core.ts";
-import {
-  counter,
-  map,
-  mapFather,
-  mapDepth,
-  mapStartLine,
-  mapEndLine,
-  extendMapArray,
-  shrinkMapArray,
-} from "./transformer.ts";
+import { SpanState } from "./transformer.ts";
 
 /** Minimal editor document surface the render engine needs (no vscode types). */
 export interface EditorDoc {
@@ -58,13 +48,7 @@ export interface PartialDecision {
   fat?: number;
 }
 
-export interface Snapshot {
-  counter: number;
-  map: (number | undefined)[];
-  mapFather: number[];
-  mapDepth: number[];
-  mapStartLine: number[];
-  mapEndLine: number[];
+export interface Snapshot extends ReturnType<SpanState["snapshot"]> {
   totalLines: number;
 }
 
@@ -75,10 +59,18 @@ export interface Snapshot {
 export class IncrementalRenderer {
   /** Total lines of the last rendering (edit-before line count). Mirrors extension.ts `totalLines`. */
   private totalLines = 0;
+  /** Isolated positional bookkeeping for this engine. */
+  private state = new SpanState();
+
+  /** Returns the engine's underlying span state (for injecting into renders). */
+  get spanState(): SpanState {
+    return this.state;
+  }
 
   /** Resets the engine's own bookkeeping (extension `cleanUp`). */
   reset(): void {
     this.totalLines = 0;
+    this.state.reset();
   }
 
   /**
@@ -87,19 +79,20 @@ export class IncrementalRenderer {
    */
   async fullRender(doc: EditorDoc, labelRoot: boolean): Promise<string> {
     this.totalLines = doc.lineCount;
-    extendMapArray(this.totalLines);
+    this.state.extendMapArray(this.totalLines);
     const html = await renderFragment(this.fullText(doc), {
       baseLine: 0,
       fatherId: 0,
       labelRoot,
+      spanState: this.state,
     });
     return html;
   }
 
   /**
    * Renders an incremental update for one text change (extension `handleTextChange`).
-   * Mutates the transformer map state and returns the decision the extension
-   * should forward to the webview (or `kind: "full"` to force a full re-render).
+   * Mutates the engine's span state and returns the decision the extension should
+   * forward to the webview (or `kind: "full"` to force a full re-render).
    */
   async update(doc: EditorDoc, change: LineChange): Promise<PartialDecision> {
     const startLine = change.startLine;
@@ -107,6 +100,9 @@ export class IncrementalRenderer {
     const textLines = change.text.split(/\r?\n/).length;
     const newEndLine = startLine + textLines - 1;
     const deltaLength = newEndLine - endLine;
+
+    const st = this.state;
+    const { map, mapFather, mapDepth, mapStartLine, mapEndLine, counter } = st;
 
     const buildBoundaries = () => {
       const last: (number | undefined)[] = [...map];
@@ -125,8 +121,15 @@ export class IncrementalRenderer {
     const lastId = last[startLine] !== undefined ? last[startLine] : next[startLine];
     const nextId = next[endLine] !== undefined ? next[endLine] : last[endLine];
 
-    if (lastId === undefined || nextId === undefined) {
-      // Cannot determine affected blocks: fall back to a full re-render.
+    // Defensive: a boundary may resolve to an id whose span was invalidated (a ghost)
+    // while the line map still referenced it. Such an id is not a real block, so its
+    // span cannot anchor a partial update — degrade to a full re-render rather than
+    // emit an invalid (e.g. negative-line) fragment.
+    const spanValid = (id: number): boolean =>
+      id !== undefined && mapStartLine[id] !== undefined && mapStartLine[id] > 0 && mapEndLine[id] !== undefined && mapEndLine[id] > 0;
+
+    if (lastId === undefined || nextId === undefined || !spanValid(lastId) || !spanValid(nextId)) {
+      // Cannot determine affected blocks safely: fall back to a full re-render.
       return { kind: "full" };
     }
 
@@ -142,6 +145,13 @@ export class IncrementalRenderer {
     };
 
     const [x0, y0, fat0] = findLCA(lastId as number, nextId as number);
+
+    // The LCA may climb through a ghost (invalidated) id on its father chain, so
+    // the chosen x/y can still be a phantom whose span was cleared. If so we cannot
+    // anchor a partial update reliably — degrade to a full re-render.
+    if (!spanValid(x0) || !spanValid(y0)) {
+      return { kind: "full" };
+    }
 
     let x = x0;
     let y = y0;
@@ -199,29 +209,28 @@ export class IncrementalRenderer {
       if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
     }
 
-    extendMapArray(editorTotalLines);
+    st.extendMapArray(editorTotalLines);
     if (deltaLength > 0) {
       for (let i = this.totalLines; i > yLine; i--) map[i + deltaLength] = map[i];
     } else {
       for (let i = yLine + 1; i <= this.totalLines; i++) map[i + deltaLength] = map[i];
     }
     for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
-    shrinkMapArray(editorTotalLines);
+    st.shrinkMapArray(editorTotalLines);
 
     const raw = doc.getTextBetweenLines(xLine, newYLine);
     const html = await renderFragment(raw, {
       baseLine: xLine - 1,
       fatherId: fat,
       labelRoot: false,
+      spanState: this.state,
     });
 
     // Clean up ghost ids: a re-render replaces the affected sub-tree with freshly
     // allocated ids, but the spans of the OLD ids it displaced stay in the span
     // arrays and, because the line-shift loop (above) also moves them, they end up
-    // overlapping the live blocks. If any later edit reads `map`/boundaries it can
-    // then pick up one of these stale ids (e.g. an inverted LCA), producing a
-    // partial update whose x/y cannot be located. An id that no line in `map`
-    // references is no longer part of the current structure, so invalidate it.
+    // overlapping live blocks. An id that no line in `map` references is no longer
+    // part of the current structure, so invalidate it.
     const live = new Set<number>();
     for (const v of map) {
       if (v !== undefined && v > 0) live.add(v);
@@ -251,12 +260,7 @@ export class IncrementalRenderer {
 
   snapshot(): Snapshot {
     return {
-      counter,
-      map: [...map],
-      mapFather: [...mapFather],
-      mapDepth: [...mapDepth],
-      mapStartLine: [...mapStartLine],
-      mapEndLine: [...mapEndLine],
+      ...this.state.snapshot(),
       totalLines: this.totalLines,
     };
   }

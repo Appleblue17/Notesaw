@@ -13,14 +13,6 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
-import {
-  setCounter,
-  map,
-  mapStartLine,
-  mapEndLine,
-  mapDepth,
-  mapFather,
-} from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
 import { IncrementalRenderer, type EditorDoc, type LineChange } from "./incremental-renderer.ts";
 import puppeteer from "puppeteer";
@@ -75,24 +67,13 @@ export function activate(context: vscode.ExtensionContext) {
     visibleRange = undefined;
     mapLast = [];
     mapNext = [];
-    setCounter(0);
-
-    map.length = 1;
-    map[0] = undefined;
-    mapStartLine.length = 1;
-    mapStartLine[0] = -1;
-    mapEndLine.length = 1;
-    mapEndLine[0] = -1;
-    mapDepth.length = 1;
-    mapDepth[0] = -1;
-    mapFather.length = 1;
-    mapFather[0] = 0;
 
     messageQueue.length = 0;
     isProcessing = false;
   };
 
   const updateMapLastNext = () => {
+    const { map } = renderer.spanState;
     mapLast = [...map];
     mapNext = [...map];
     for (let i = 1; i < map.length; i++) {
@@ -117,6 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
       next = mapNext[line];
 
     // console.log("Syncing preview:", { line, last, next });
+    const { mapStartLine, mapEndLine } = renderer.spanState;
     panel.webview.postMessage({
       command: "syncPreview",
       line,
