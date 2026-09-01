@@ -82,7 +82,7 @@
 ### 4.4 Git 提交规范
 
 ```
-[<type>](<optional-scope>): <subject>
+[<type>] <subject>
 ```
 
 **type**：
