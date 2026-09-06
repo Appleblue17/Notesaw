@@ -16,6 +16,7 @@
 - Add GFM feature-coverage tests (`test/gfm.test.ts`): links, images (incl. default `imgBase`), reference links, tables with alignment, ordered/nested/task lists, blockquotes, inline & display KaTeX, fenced code with starry-night highlighting, footnotes, autolinks, headings, and GFM inside Notesaw blocks plus webview-adapter parity.
 - Add long-article incremental tests (`test/long-note.test.ts`) over the provided ~2000-line note: single edits at scattered structural sites, fresh sibling blocks inserted near the top/middle/bottom, and a rapid balanced edit burst.
 - Make every full-render fallback observable (directive-1): the render engine now counts engine-proactive `{kind:"full"}` decisions (`fullFallbackCount`) with per-step reasons (`fullFallbackReasons`), and the test helper `applyDecisionAndStats` reports BOTH engine-proactive and webview `requestFullRefresh` fallbacks per step so no whole-document re-render is silently swallowed by a test.
+- Add vscode-faithful positional-edit coverage (`test/incremental-vscode-edit.test.ts`): the engine is validated against real vscode edits it previously never saw — mid-line empty-range inserts, single-line range replaces (`range.end > range.start`), and multi-line inserts at a boundary — each checked for DOM equality with a clean full render.
 
 ### Known Issues
 
