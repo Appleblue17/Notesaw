@@ -71,16 +71,13 @@ describe("incremental: long-article editing (long-note.md)", () => {
 });
 
 /**
- * Known issue (Finding A): inserting an UNCLOSED block opener (`@label Title {`, a
- * legitimate mid-typing state) produces an incremental fragment whose EOF closes the
- * opened block EARLIER than a full render of the same document would. The fragment
- * range is bounded by the partial x/y, so a block opened at the range start swallows
- * only content up to the fragment end, whereas the full render's EOF-close would
- * swallow further. Result: incremental and full disagree on the block's extent.
- * Recorded as an expected failure to be root-caused (structure-health detection).
+ * Non-block-abrupt-closure guard: inserting an UNCLOSED block opener (`@label Title {`,
+ * a legitimate mid-typing state) must keep the incremental fragment in agreement with
+ * a clean full render. Under vscode-faithful edit geometry this now holds because the
+ * engine's fragment window and EOF-close semantics stay aligned with the full render.
  */
-describe("incremental: unclosed block opener vs full render (known issue)", () => {
-  it.fails("incremental fragment swallows less than a clean full render", async () => {
+describe("incremental: unclosed block opener stays in sync", () => {
+  it("keeps the incremental fragment equal to a clean full render", async () => {
     const oracle = new DomOracle();
     const e = await oracle.seed([
       "@def A {",
@@ -97,14 +94,15 @@ describe("incremental: unclosed block opener vs full render (known issue)", () =
 });
 
 /**
- * Known issue (Finding B): under a burst of rapid but balanced edits, the engine
- * eventually returns a `partial` decision whose `fat` anchor (the LCA parent id) is a
- * ghost id that no longer exists in the DOM, so `partialUpdateHtml` cannot locate it
- * and the webview requests a full refresh ("parent id not found"). This is exactly the
- * "定位失败 → full" degradation the user wants eliminated. Recorded as expected failure.
+ * Rapid-burst guard: under a burst of rapid but balanced edits the engine must not
+ * degrade into a webview full refresh. Previously the engine could return a `partial`
+ * whose `fat` anchor (LCA parent id) was a ghost id no longer present in the DOM, so
+ * the webview could not locate it and requested a full refresh ("parent id not found")
+ * — the "定位失败 → full" degradation we want eliminated. Under vscode-faithful edit
+ * geometry the LCA anchors stay real, so this stays a true end-to-end invariant.
  */
-describe("incremental: rapid balanced edit burst on a long note (known issue)", () => {
-  it.fails("never degrades to a full refresh across 120 rapid edits", async () => {
+describe("incremental: rapid balanced edits on a long note never degrade to full", () => {
+  it("never degrades to a full refresh across 120 rapid edits", async () => {
     const renderer = new IncrementalRenderer();
     const host = bootstrapWebview();
     const editor = new MockEditor(longNoteText());

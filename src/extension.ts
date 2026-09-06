@@ -14,7 +14,7 @@ import * as path from "path";
 import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
 import { setWorkspaceUri } from "./env.ts";
-import { IncrementalRenderer, type EditorDoc, type LineChange } from "./incremental-renderer.ts";
+import { IncrementalRenderer, type EditorDoc, type TextChange } from "./incremental-renderer.ts";
 import puppeteer from "puppeteer";
 
 type TextChangeMessage = {
@@ -130,15 +130,16 @@ export function activate(context: vscode.ExtensionContext) {
 
   const handleTextChange = async ({ editor, change }: TextChangeMessage) => {
     if (!panel) return;
-    const startLine = change.range.start.line + 1;
-    const endLine = change.range.end.line + 1;
-
-    const lineChange: LineChange = {
-      startLine,
-      endLine,
+    // Forward the change as a true VSCode edit (`range`+`text` with real Positions)
+    // so the engine receives exact geometry instead of a line-collapsed guess.
+    const textChange: TextChange = {
+      range: {
+        start: { line: change.range.start.line, character: change.range.start.character },
+        end: { line: change.range.end.line, character: change.range.end.character },
+      },
       text: change.text,
     };
-    const decision = await renderer.update(makeEditorDoc(editor.document), lineChange);
+    const decision = await renderer.update(makeEditorDoc(editor.document), textChange);
 
     if (decision.kind === "full") {
       // Affected blocks could not be determined; fall back to a full re-render.

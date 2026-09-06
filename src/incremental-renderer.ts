@@ -14,6 +14,7 @@
 
 import { renderFragment } from "./core.ts";
 import { SpanState } from "./transformer.ts";
+import type { Edit } from "./vscode-edit.ts";
 
 /** Minimal editor document surface the render engine needs (no vscode types). */
 export interface EditorDoc {
@@ -24,15 +25,14 @@ export interface EditorDoc {
   getTextBetweenLines(start: number, end: number): string;
 }
 
-/** A text change in 1-based line coordinates, mirroring extension.ts semantics. */
-export interface LineChange {
-  /** 1-based first affected line. */
-  startLine: number;
-  /** 1-based last affected line before the change. */
-  endLine: number;
-  /** Full replacement text (may span multiple lines). */
-  text: string;
-}
+/**
+ * A text change, expressed with exact VSCode geometry: an `Edit` (`range`+`text`)
+ * over 0-based `{line,character}` positions where a pure insertion has
+ * `range.start == range.end`. This is the single geometry both the engine and the
+ * editor mock (and the real extension bridge) agree on — the engine no longer
+ * guesses whole-line spans.
+ */
+export type TextChange = Edit;
 
 export interface PartialDecision {
   kind: "full" | "partial";
@@ -121,15 +121,22 @@ export class IncrementalRenderer {
 
   /**
    * Renders an incremental update for one text change (extension `handleTextChange`).
-   * Mutates the engine's span state and returns the decision the extension should
-   * forward to the webview (or `kind: "full"` to force a full re-render).
+   * `doc` must already reflect the post-edit document (VS Code mutates the document
+   * before the change fires; the mock helpers apply the edit first). The net line
+   * delta is read authoritatively from `doc.lineCount` vs the engine's last-known
+   * total — no whole-line guessing — and the affected OLD boundary lines come from
+   * the edit's true `range`.
    */
-  async update(doc: EditorDoc, change: LineChange): Promise<PartialDecision> {
-    const startLine = change.startLine;
-    const endLine = change.endLine;
-    const textLines = change.text.split(/\r?\n/).length;
-    const newEndLine = startLine + textLines - 1;
-    const deltaLength = newEndLine - endLine;
+  async update(doc: EditorDoc, change: TextChange): Promise<PartialDecision> {
+    // 0-based range over the OLD coordinates the edit was issued against.
+    const rlo = change.range.start.line;
+    const rhi = change.range.end.line;
+    const startLine = Math.min(rlo, rhi) + 1; // 1-based inclusive old first affected line
+    const endLine = Math.max(rlo, rhi) + 1; // 1-based inclusive old last affected line
+
+    // Authoritative net delta: doc already reflects the post-edit text.
+    const editorTotalLines = doc.lineCount;
+    const deltaLength = editorTotalLines - this.totalLines;
 
     const st = this.state;
     const { map, mapFather, mapDepth, mapStartLine, mapEndLine, counter } = st;
@@ -208,7 +215,6 @@ export class IncrementalRenderer {
     const xLine = Math.min(mapStartLine[x], startLine);
     const yLine = Math.max(mapEndLine[y], endLine);
     const newYLine = yLine + deltaLength;
-    const editorTotalLines = doc.lineCount;
     const updateMapLines = (line: number, start: number, end: number) => {
       while (line !== undefined) {
         let flag = false;
