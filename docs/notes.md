@@ -30,3 +30,12 @@ _Notesaw Preview_ 已发布至 v0.2.2，核心功能可用：
 - **包管理与锁文件**：`package-lock.json`（npm）与 `pnpm-lock.yaml`（pnpm）并存，`dev.sh` 走 npm、`prod.sh` 走 pnpm；改动依赖时保持两者一致。
 - **CI**：super-linter 仅扫描 `src/` 与 `assets/script/webview-script.js`，提交前运行 `npm run lint`。
 - **语法细节**：`+` 前缀（link 符号）、`?`/`!`/`*` 样式符号在解析器中已实现但 block-link 渲染代码在 `transformer.ts` 中被注释，仅行内块与部分场景生效，改动时留意。
+
+## 遗留：纯部分渲染静默漂移的根因定位（vscode-edit 几何改造后剩余 it.fails）
+
+- 现状（green：97 通过 / 3 it.fails / 0 真实失败）：engine 主动 full 与 webview `requestFullRefresh` 均=0；150 步压力序列首次纯部分 DOM 分歧发生在 step 29（`delLine` 删除某块 `}` 闭行）。
+- 已验证非「引擎历史累积」：对同一 PRE 文档用**全新引擎** seed 后只做单个 `delLine`，仍分歧 → 是**单次删除**在特定文档形态下的固有失败，不是历史状态污染。
+- 最小机理（PRE 文档，`@def B20 {` 的 `}` 在第 22 行被删）：全量重解析中 B20 会下吞后续 `@note B11` + 一层更深的 `a \`code\` inline…}` 内容，B20 新的真实 extent 到第 ~28 行。但引擎 map 中第 24-31 行的内容挂在**幽灵容器 id11** 下（father=1 但非任何 map 行 owner），既非 `fat=1` 的直接子兄弟，findNextSibling(10/B11) 也就扩不动 → 重渲染窗口停在 `[20..23]`，把 B20 真实要吞的子内容在 DOM 里丢掉。
+- 结论：只要某区间内容挂在「非 map 行的幽灵容器」子树下，删除该处块闭行就无法用 map/注册表正确扩展右边界 —— 只能在「绝不静默出错」与「正确增量」间取其一。
+- 预期修复方向（用户已认可原则，见 CHANGELOG c9d6e35 说明的反面）：部分重渲染覆盖到某旧子树根时，只把该**旧根 bookkeeping 作废/让位**给本次重解析出的新结构（不枚举整棵内部 id），使幽灵容器不再携带未来内容；或对这类结构歧义删除显式降级为**可计数的 full 兜底**，绝不静默产出错误内容。
+
