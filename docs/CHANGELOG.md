@@ -15,12 +15,14 @@
 - Rebuild the incremental-rendering correctness oracle on the DOM (`.block-container` contents) instead of the unreliable span-map fingerprints; correct handling of `full` decisions when an incremental update legitimately falls back to a full render.
 - Add GFM feature-coverage tests (`test/gfm.test.ts`): links, images (incl. default `imgBase`), reference links, tables with alignment, ordered/nested/task lists, blockquotes, inline & display KaTeX, fenced code with starry-night highlighting, footnotes, autolinks, headings, and GFM inside Notesaw blocks plus webview-adapter parity.
 - Add long-article incremental tests (`test/long-note.test.ts`) over the provided ~2000-line note: single edits at scattered structural sites, fresh sibling blocks inserted near the top/middle/bottom, and a rapid balanced edit burst.
+- Make every full-render fallback observable (directive-1): the render engine now counts engine-proactive `{kind:"full"}` decisions (`fullFallbackCount`) with per-step reasons (`fullFallbackReasons`), and the test helper `applyDecisionAndStats` reports BOTH engine-proactive and webview `requestFullRefresh` fallbacks per step so no whole-document re-render is silently swallowed by a test.
 
 ### Known Issues
 
 - Harassing a document with many destructive in-place edits (setting block lines to quotes/blank, tearing braces) produces a deeply broken transitional structure; even with ghost-id guards, a late incremental update in such a state can still fail to locate its targets (recorded as `it.fails` in `incremental-press` and `incremental-continuous`). Further robust handling for deeply-broken transitional documents is still open.
 - Inserting an UNCLOSED block opener (`@label Title {`, a legitimate mid-typing state) makes a partial fragment close the opened block at the fragment's end, while a full render of the same document closes it at the document's EOF — so incremental and full disagree on the block's extent (`it.fails` in `long-note`). Root-causing is still open.
 - Under a burst of rapid but balanced edits on a long document, the engine can return a `partial` whose `fat` parent anchor is a ghost id absent from the DOM, so the webview falls back to a full refresh ("parent id not found") — a residual "定位失败 → full" degradation (`it.fails` in `long-note`). Root-causing is still open.
+- The "full re-render as fallback" that is supposed to be a last-resort insurance is actually exercised frequently: over 150 press-style edits the engine pro-actively degrades to a whole-document render on ~30 steps and the webview requests a refresh on ~4 more, while a handful of pure-partial steps (29, 35, 50, 51) still drift without any fallback. Recorded as `it.fails` in `incremental-fullfallback` with the summary printed each run, so progress toward ZERO full fallbacks and ZERO pure-partial drift is measurable.
 
 ### Bug Fixes
 

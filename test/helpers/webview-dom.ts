@@ -1,5 +1,7 @@
 import { JSDOM } from "jsdom";
 import fs from "fs";
+import type { IncrementalRenderer, PartialDecision } from "../../src/incremental-renderer.ts";
+import type { MockEditor } from "./render-sim.ts";
 
 export interface WebviewHost {
   dom: JSDOM;
@@ -8,6 +10,51 @@ export interface WebviewHost {
   /** Returns the current count of `requestFullRefresh` messages posted back. */
   refreshCount: () => number;
 }
+
+export interface DecisionOutcome {
+  decision: PartialDecision;
+  /** Incremental DOM `.block-container` contents after applying the decision. */
+  inc: string[];
+  /** # of engine-proactive `kind:"full"` decisions recorded for this step. */
+  engineFull: number;
+  /** # of webview `requestFullRefresh` messages posted during this step. */
+  webviewFull: number;
+}
+
+/**
+ * Applies an engine decision to a preview host and reports BOTH kinds of full-render
+ * fallback so a full fallback is never silently swallowed by a test:
+ *   - `engineFull`: the engine returned `kind:"full"` (a proactive give-up).
+ *   - `webviewFull`: the webview posted `requestFullRefresh` (partial anchors not found).
+ *
+ * The caller captures `engineBaseline = renderer.fullFallbackCount` and
+ * `webviewBaseline = host.refreshCount()` BEFORE calling (or passes the values from
+ * the *previous* step to get deltas for this step).
+ */
+export async function applyDecisionAndStats(
+  renderer: IncrementalRenderer,
+  host: WebviewHost,
+  editor: MockEditor,
+  change: Parameters<MockEditor["apply"]>[0],
+  engineBaseline: number,
+  webviewBaseline: number,
+): Promise<DecisionOutcome> {
+  editor.apply(change);
+  const decision = await renderer.update(editor, change);
+  if (decision.kind === "partial" && decision.raw !== undefined) {
+    host.window.partialUpdateHtml(decision.raw, decision.x, decision.y, decision.fat);
+  } else if (decision.kind === "full") {
+    host.window.document.body.innerHTML = await renderer.fullRender(editor, true);
+  }
+  const inc = blockContents(host.window);
+  return {
+    decision,
+    inc,
+    engineFull: renderer.fullFallbackCount - engineBaseline,
+    webviewFull: host.refreshCount() - webviewBaseline,
+  };
+}
+
 
 /**
  * Inflates webview-script.js into a fresh JSDOM window with a mocked host bridge,

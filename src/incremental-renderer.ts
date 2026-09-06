@@ -62,15 +62,45 @@ export class IncrementalRenderer {
   /** Isolated positional bookkeeping for this engine. */
   private state = new SpanState();
 
+  /**
+   * Diagnostic counters for full-render fallbacks.
+   *
+   * Because degrading to a `kind:"full"` decision is a sign the incremental
+   * machinery could not (or would not) compute a valid partial, every occurrence is
+   * recorded so tests can *observe* full fallbacks instead of silently swallowing
+   * them. These are observational only — they never change a decision.
+   */
+  private fullCount = 0;
+  private fullReasons: string[] = [];
+
+  /** Number of times `update()` returned a proactive `kind:"full"` decision. */
+  get fullFallbackCount(): number {
+    return this.fullCount;
+  }
+
+  /** Ordered list of reasons for each proactive full fallback ("" when none). */
+  get fullFallbackReasons(): readonly string[] {
+    return this.fullReasons;
+  }
+
   /** Returns the engine's underlying span state (for injecting into renders). */
   get spanState(): SpanState {
     return this.state;
   }
 
-  /** Resets the engine's own bookkeeping (extension `cleanUp`). */
+  /** Resets the engine's own bookkeeping plus the diagnostic full counters. */
   reset(): void {
     this.totalLines = 0;
     this.state.reset();
+    this.fullCount = 0;
+    this.fullReasons = [];
+  }
+
+  /** Records a proactive full fallback and returns the `{kind:"full"}` decision. */
+  private full(reason: string): { kind: "full" } {
+    this.fullCount++;
+    this.fullReasons.push(reason);
+    return { kind: "full" };
   }
 
   /**
@@ -130,7 +160,9 @@ export class IncrementalRenderer {
 
     if (lastId === undefined || nextId === undefined || !spanValid(lastId) || !spanValid(nextId)) {
       // Cannot determine affected blocks safely: fall back to a full re-render.
-      return { kind: "full" };
+      return this.full(
+        `boundary invalid (lastId=${lastId} nextId=${nextId} lastValid=${lastId!==undefined&&spanValid(lastId)} nextValid=${nextId!==undefined&&spanValid(nextId)})`,
+      );
     }
 
     const findLCA = (x: number, y: number): [number, number, number] => {
@@ -150,7 +182,7 @@ export class IncrementalRenderer {
     // the chosen x/y can still be a phantom whose span was cleared. If so we cannot
     // anchor a partial update reliably — degrade to a full re-render.
     if (!spanValid(x0) || !spanValid(y0)) {
-      return { kind: "full" };
+      return this.full(`LCA x0/y0 invalid (x0=${x0} v${spanValid(x0)} y0=${y0} v${spanValid(y0)} from lastId=${lastId} nextId=${nextId})`);
     }
 
     let x = x0;
