@@ -151,18 +151,9 @@ export class IncrementalRenderer {
     const lastId = last[startLine] !== undefined ? last[startLine] : next[startLine];
     const nextId = next[endLine] !== undefined ? next[endLine] : last[endLine];
 
-    // Defensive: a boundary may resolve to an id whose span was invalidated (a ghost)
-    // while the line map still referenced it. Such an id is not a real block, so its
-    // span cannot anchor a partial update — degrade to a full re-render rather than
-    // emit an invalid (e.g. negative-line) fragment.
-    const spanValid = (id: number): boolean =>
-      id !== undefined && mapStartLine[id] !== undefined && mapStartLine[id] > 0 && mapEndLine[id] !== undefined && mapEndLine[id] > 0;
-
-    if (lastId === undefined || nextId === undefined || !spanValid(lastId) || !spanValid(nextId)) {
-      // Cannot determine affected blocks safely: fall back to a full re-render.
-      return this.full(
-        `boundary invalid (lastId=${lastId} nextId=${nextId} lastValid=${lastId!==undefined&&spanValid(lastId)} nextValid=${nextId!==undefined&&spanValid(nextId)})`,
-      );
+    if (lastId === undefined || nextId === undefined) {
+      // No block owned the edit boundaries; cannot anchor a partial.
+      return this.full(`boundary empty (lastId=${lastId} nextId=${nextId})`);
     }
 
     const findLCA = (x: number, y: number): [number, number, number] => {
@@ -178,29 +169,31 @@ export class IncrementalRenderer {
 
     const [x0, y0, fat0] = findLCA(lastId as number, nextId as number);
 
-    // The LCA may climb through a ghost (invalidated) id on its father chain, so
-    // the chosen x/y can still be a phantom whose span was cleared. If so we cannot
-    // anchor a partial update reliably — degrade to a full re-render.
-    if (!spanValid(x0) || !spanValid(y0)) {
-      return this.full(`LCA x0/y0 invalid (x0=${x0} v${spanValid(x0)} y0=${y0} v${spanValid(y0)} from lastId=${lastId} nextId=${nextId})`);
-    }
-
     let x = x0;
     let y = y0;
     const fat = fat0;
 
-    // Finds the sibling of `id` (same father) whose span starts right after `id`'s
-    // start. Used to widen the incremental range across a structural re-parse.
+    // Finds the sibling of `id` (same father) that comes right AFTER `id` — i.e.
+    // whose span begins after `id`'s span ENDS. Stale shadow ids from earlier
+    // re-renders may still share the father and START after `id` but OVERLAP its
+    // span (e.g. an old duplicate of the same region); those are not real siblings
+    // and must not widen the range onto a phantom block.
     const findNextSibling = (id: number): number | undefined => {
       const father = mapFather[id];
-      const aroundStart = mapStartLine[id];
+      const afterEnd = mapEndLine[id];
       let best: { id: number; start: number } | undefined;
+      // Only a block still referenced by `map` is a real, current sibling. Stale
+      // ids from earlier re-renders linger in the span arrays (with no map row) and
+      // would otherwise be offered as phantom next siblings.
+      const mapped = new Set<number>();
+      for (const v of map) if (v !== undefined && v > 0) mapped.add(v);
       for (let i = 1; i <= counter; i++) {
+        if (!mapped.has(i)) continue;
         if (i === id) continue;
         if (mapFather[i] !== father) continue;
         const s = mapStartLine[i];
         if (s === undefined || s <= 0) continue;
-        if (s > aroundStart && (!best || s < best.start)) best = { id: i, start: s };
+        if (s > afterEnd && (!best || s < best.start)) best = { id: i, start: s };
       }
       return best?.id;
     };
@@ -216,7 +209,6 @@ export class IncrementalRenderer {
     const yLine = Math.max(mapEndLine[y], endLine);
     const newYLine = yLine + deltaLength;
     const editorTotalLines = doc.lineCount;
-
     const updateMapLines = (line: number, start: number, end: number) => {
       while (line !== undefined) {
         let flag = false;
@@ -257,22 +249,6 @@ export class IncrementalRenderer {
       labelRoot: false,
       spanState: this.state,
     });
-
-    // Clean up ghost ids: a re-render replaces the affected sub-tree with freshly
-    // allocated ids, but the spans of the OLD ids it displaced stay in the span
-    // arrays and, because the line-shift loop (above) also moves them, they end up
-    // overlapping live blocks. An id that no line in `map` references is no longer
-    // part of the current structure, so invalidate it.
-    const live = new Set<number>();
-    for (const v of map) {
-      if (v !== undefined && v > 0) live.add(v);
-    }
-    for (let i = 1; i <= counter; i++) {
-      if (mapStartLine[i] > 0 && !live.has(i)) {
-        mapStartLine[i] = -1;
-        mapEndLine[i] = -1;
-      }
-    }
 
     for (let i = 1; i <= counter; i++) {
       updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
