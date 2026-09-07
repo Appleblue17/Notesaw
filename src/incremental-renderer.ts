@@ -62,6 +62,10 @@ export class IncrementalRenderer {
   /** Isolated positional bookkeeping for this engine. */
   private state = new SpanState();
 
+  /** Fenced-code chrome toggled by the extension (see `src/config.ts`). */
+  codeFeatures = false;
+  codeLineNumbers = true;
+
   /**
    * Diagnostic counters for full-render fallbacks.
    *
@@ -115,6 +119,8 @@ export class IncrementalRenderer {
       fatherId: 0,
       labelRoot,
       spanState: this.state,
+      codeFeatures: this.codeFeatures,
+      codeLineNumbers: this.codeLineNumbers,
     });
     return html;
   }
@@ -268,6 +274,8 @@ export class IncrementalRenderer {
       fatherId: fat,
       labelRoot: false,
       spanState: this.state,
+      codeFeatures: this.codeFeatures,
+      codeLineNumbers: this.codeLineNumbers,
     });
 
     for (let i = 1; i <= counter; i++) {

@@ -20,6 +20,7 @@ import rehypeStringify from "rehype-stringify";
 
 import noteParsePlugin, { noteBoxParsePlugin } from "./parser.ts";
 import { noteTransformPlugin, type SpanState } from "./transformer.ts";
+import rehypeNotesawCode from "./code-decorator.ts";
 
 export interface PipelineConfig {
   /** Base path used to resolve relative image links (no trailing slash required). */
@@ -32,6 +33,14 @@ export interface PipelineConfig {
   labelRoot?: boolean;
   /** Optional isolated span state; when provided the transform writes into it. */
   spanState?: SpanState;
+  /**
+   * Enable the fenced-code chrome: language label and copy button. When false
+   * (the normal low-level/test default) rendering is byte-identical to plain
+   * starry-night output. The extension turns this on so preview/export match.
+   */
+  codeFeatures?: boolean;
+  /** Add per-line numbers to fenced code (only used when `codeFeatures` is on). */
+  codeLineNumbers?: boolean;
 }
 
 function normalizeImgBase(imgBase: string | undefined): string {
@@ -57,7 +66,11 @@ export function createCorePipeline(cfg: PipelineConfig = {}) {
     .use(remarkRehype)
     .use(rehypeKatex)
     .use(noteTransformPlugin(cfg.spanState), cfg.baseLine ?? 0, cfg.fatherId ?? 0, cfg.labelRoot ?? false)
-    .use(rehypeStarryNight);
+    .use(rehypeStarryNight)
+    .use(rehypeNotesawCode, {
+      enabled: cfg.codeFeatures === true,
+      lineNumbers: cfg.codeLineNumbers === true,
+    });
 }
 
 /** Renders a fragment of Notesaw content to a bare HTML snippet (no document wrapper). */

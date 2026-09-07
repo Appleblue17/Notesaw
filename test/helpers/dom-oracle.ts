@@ -2,6 +2,12 @@ import { IncrementalRenderer } from "../../src/incremental-renderer.ts";
 import { MockEditor, resetEngineState } from "./render-sim.ts";
 import { bootstrapWebview, blockContents, type WebviewHost } from "./webview-dom.ts";
 
+export interface DomOracleOptions {
+  /** Mirror the extension: enable fenced-code chrome (language label/copy/line numbers). */
+  codeFeatures?: boolean;
+  codeLineNumbers?: boolean;
+}
+
 /**
  * A DOM-based incremental oracle. Drives the real incremental engine + webview
  * `partialUpdateHtml` on a jsdom preview, then hands the resulting `.block-container`
@@ -12,10 +18,14 @@ import { bootstrapWebview, blockContents, type WebviewHost } from "./webview-dom
 export class DomOracle {
   renderer: IncrementalRenderer;
   host: WebviewHost;
+  private opts: DomOracleOptions;
 
-  constructor() {
+  constructor(options: DomOracleOptions = {}) {
     resetEngineState();
+    this.opts = options;
     this.renderer = new IncrementalRenderer();
+    this.renderer.codeFeatures = options.codeFeatures ?? false;
+    this.renderer.codeLineNumbers = options.codeLineNumbers ?? true;
     this.host = bootstrapWebview();
   }
 
@@ -51,6 +61,8 @@ export class DomOracle {
     // clean full render of the resulting document in isolated state
     resetEngineState();
     const fresh = new IncrementalRenderer();
+    fresh.codeFeatures = this.renderer.codeFeatures;
+    fresh.codeLineNumbers = this.renderer.codeLineNumbers;
     const tmp = new MockEditor(editor.text);
     const th = bootstrapWebview();
     th.window.document.body.innerHTML = await fresh.fullRender(tmp, true);

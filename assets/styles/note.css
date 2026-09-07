@@ -139,3 +139,82 @@ body[data-theme="light"] {
   border-right: 1.5px solid var(--box-border-color);
   border-bottom: 1.5px solid var(--box-border-color);
 }
+
+/* ==========================================================================
+   Fenced code block chrome (line numbers, language label, copy button).
+   ========================================================================== */
+
+.markdown-body pre.sn-block {
+  position: relative;
+  padding-top: 1.7em; /* room for the toolbar overlay */
+}
+
+.markdown-body .sn-lang,
+.markdown-body .sn-copy {
+  position: absolute;
+  top: 0.25em;
+  font-family: var(--fontStack-monospace, ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace);
+  font-size: 0.75rem;
+  color: var(--fgColor-muted, #57606a);
+  border: 0;
+  background: none;
+  line-height: 1;
+}
+.markdown-body .sn-lang {
+  left: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.markdown-body .sn-copy {
+  right: 0.8em;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+  padding: 0.25em 0.5em;
+  border-radius: 6px;
+}
+.markdown-body .sn-copy:hover {
+  opacity: 1;
+  background: var(--bgColor-muted, #f6f8fa);
+}
+.markdown-body .sn-copy:focus-visible {
+  outline: 1px solid var(--fgColor-accent, #0969da);
+  outline-offset: 1px;
+}
+.markdown-body .sn-copy:active {
+  opacity: 0.5;
+}
+
+/* Per-line number rows: each source line is a flex row with a number column
+   followed by the (un-edited) code tokens. Numbers sit flush left in a narrow
+   gutter; `<pre>` already supplies its own side/bottom padding. */
+.markdown-body pre code.sn-line-num {
+  display: block;
+}
+.markdown-body code.sn-line-num .sn-line {
+  display: flex;
+  align-items: baseline;
+}
+.markdown-body .sn-line .sn-no {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: left;
+  padding-right: 0.9em;
+  color: var(--fgColor-muted, #57606a);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.markdown-body .sn-line .sn-code-part {
+  flex: 0 1 auto;
+  white-space: pre;
+}
+
+/* Hide the interactive copy button when exporting to PDF / printing. */
+@media print {
+  .markdown-body .sn-copy {
+    display: none;
+  }
+}
+

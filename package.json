@@ -100,6 +100,13 @@
           "description": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages.",
           "markdownDescription": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages."
         },
+        "notesaw.codeBlock.lineNumbers": {
+          "order": 20,
+          "type": "boolean",
+          "default": true,
+          "description": "Show line numbers on the left of fenced code blocks in the preview and exports.",
+          "markdownDescription": "Show line numbers on the left of fenced code blocks in the preview and exports. The language label and copy button are always shown."
+        },
         "notesaw.pdfOptions.puppeteerPath": {
           "order": 100,
           "type": "string",

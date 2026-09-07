@@ -7,6 +7,7 @@
 - Adopt authoritative editor geometry end-to-end: the preview engine speaks one exact `range`+`insert` edit model (0-based positions) shared with the editor and the render core, instead of inferring whole-line replacements.
 - Incremental editing is now reliable: the preview re-renders only the changed range and stays faithful to a full render even across long, sustained editing sessions; previously partial updates could drift from the true document over many edits.
 - Notesaw settings (theme and scroll-sync mode/thresholds) now apply to an open preview immediately, and the preview tracks VS Code color-theme switches, without needing to reopen the preview. Configuration reads are centralized in `src/config.ts` (typed helpers whose defaults mirror the `package.json` schema) instead of being re-read with ad-hoc defaults at each call site.
+- Fenced code blocks get a **language label** and a **Copy** button, plus **per-line numbers** in the preview and exports. The line numbers are toggleable with the new `notesaw.codeBlock.lineNumbers` setting (default on); copying always takes the un-numbered source text. Addressed in the shared core (via a new opt-in render option) so preview and HTML/PDF export stay in parity without disturbing the existing syntax highlighting or the incremental renderers.
 
 ### Bug Fixes
 

@@ -77,6 +77,17 @@ export function scrollSyncSettings(): ScrollSyncSettings {
 }
 
 // ---------------------------------------------------------------------------
+// Code block chrome
+// ---------------------------------------------------------------------------
+
+/** Whether fenced code blocks show per-line numbers (the label/copy are always on). */
+export function codeBlockLineNumbers(): boolean {
+  return (
+    vscode.workspace.getConfiguration(SECTION).get<boolean>("codeBlock.lineNumbers") ?? true
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PDF / export
 // ---------------------------------------------------------------------------
 

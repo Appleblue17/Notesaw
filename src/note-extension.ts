@@ -81,12 +81,15 @@ export async function noteProcess(
   doc: string,
   baseLine: number,
   fatherId: number,
-  labelRoot: boolean
+  labelRoot: boolean,
+  renderOptions?: { codeFeatures?: boolean; codeLineNumbers?: boolean }
 ): Promise<string> {
   return renderFragment(doc, {
     imgBase: workspaceUri,
     baseLine,
     fatherId,
     labelRoot,
+    codeFeatures: renderOptions?.codeFeatures,
+    codeLineNumbers: renderOptions?.codeLineNumbers,
   });
 }

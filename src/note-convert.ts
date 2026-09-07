@@ -32,7 +32,8 @@ export default async function noteProcessConvert(
   katexCssPath: string | undefined,
   workspacePath: string | undefined,
   featherSvgPath: string,
-  theme: "light" | "dark" | undefined = "light"
+  theme: "light" | "dark" | undefined = "light",
+  renderOptions?: { codeFeatures?: boolean; codeLineNumbers?: boolean }
 ): Promise<string> {
   const cssList = [noteCssPath, ghmCssPath, katexCssPath].filter(
     (uri) => uri !== undefined && uri !== null,
@@ -44,6 +45,8 @@ export default async function noteProcessConvert(
     fatherId: 0,
     labelRoot: true,
     spanState: new SpanState(),
+    codeFeatures: renderOptions?.codeFeatures,
+    codeLineNumbers: renderOptions?.codeLineNumbers,
   })
     .use(rehypeDocument, { css: cssList as string[] })
     .use(rehypeFormat)

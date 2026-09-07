@@ -26,6 +26,7 @@ _Notesaw Preview_ 已发布至 v0.2.2，核心功能可用：
 ## 注意事项
 
 - **设置集中在 `src/config.ts`**：`theme` / `scrollSync.*` / `pdfOptions.*` 都用类型化 helper 读取；默认值要和 `package.json` 的 `contributes.configuration`（VS Code 真正注入默认值的单一来源）保持一致。改默认值时两处同步。
+- **代码框增强走共享管线 opt-in**：`src/code-decorator.ts` 在 `rehype-starry-night` 之后给块级 `<pre><code>` 加语言标签 + copy 按钮 + 可选的逐行布局：每行一个 `.sn-line`（flex），含独立行号格 `.sn-no` 与代码格 `.sn-code-part`（`data-line-number`；真实单元格而非伪元素，避免行距被拉大/左偏）。由 `PipelineConfig.codeFeatures`/`codeLineNumbers` 控制，**默认关闭**以保持低层渲染与增量 oracle 输出字节一致；扩展端在 `IncrementalRenderer.codeFeatures/codeLineNumbers` 与导出/转换调用处打开（`notesaw.codeBlock.lineNumbers` 默认 true）。装饰内容只作为 `<pre>` 内部子树，随每次重渲染一并生成，避免破坏按 id 的增量替换。webview 里 Copy 读取所有 `.sn-code-part` 以 `\n` 连接（不含行号）。
 - **预览实时响应设置与主题切换**：`notesaw.*` 设置变化（`onDidChangeConfiguration`）或 VS Code 颜色主题切换（`onDidChangeActiveColorTheme`）会向已打开预览发送 `setScrollSyncConfig` + `updateTheme`。webview 的 `updateTheme` 只增删 `body[data-theme]`，`follow-system` 时删属性交由 `prefers-color-scheme`。
 - **部分渲染是实验特性**：预览异常时，建议提示用户重新点击预览按钮刷新（README 已说明）。
 - **PDF 导出需要 Chrome**：未安装时先按 README「Get Started → Exporting」下载并在 `Puppeteer Path` 设置中配置。

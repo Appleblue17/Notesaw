@@ -217,3 +217,38 @@ window.addEventListener("message", (event) => {
       break;
   }
 });
+
+/**
+ * Language label / "copy" chrome for fenced code blocks.
+ *
+ * The copy button in the webview routes the (un-numbered) raw code text to the
+ * VS Code clipboard through the extension host, since the webview sandbox cannot
+ * always use `navigator.clipboard` directly. Line numbers live in CSS pseudo
+ * content (`::before { content: attr(data-line-number) }`), so reading
+ * `textContent` of the `<code>` yields exactly the source, without numbering.
+ */
+document.addEventListener("click", (event) => {
+  const button = event.target.closest && event.target.closest(".sn-copy");
+  if (!button) return;
+  const block = button.closest && button.closest("pre.sn-block");
+  if (!block) return;
+  event.preventDefault();
+  const code = block.querySelector("code.sn-code");
+  if (!code) return;
+  // Line-numbered rows keep numbers in a separate `.sn-no` cell; copy only the
+  // code cells so the clipboard text is exactly the source.
+  const parts = Array.prototype.map.call(
+    code.querySelectorAll(".sn-line .sn-code-part"),
+    (el) => el.textContent || "",
+  );
+  const text = parts.length > 0 ? parts.join("\n") : code.textContent || "";
+  if (!vscode) return;
+  vscode.postMessage({ command: "copyCodeToClipboard", text });
+  // Brief visual confirmation that the click landed.
+  const original = button.textContent;
+  button.textContent = "Copied";
+  window.setTimeout(() => {
+    button.textContent = original;
+  }, 1200);
+});
+

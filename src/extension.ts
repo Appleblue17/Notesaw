@@ -15,7 +15,7 @@ import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
 import { setWorkspaceUri } from "./env.ts";
 import { IncrementalRenderer, type EditorDoc, type TextChange } from "./incremental-renderer.ts";
-import { resolveTheme, scrollSyncSettings, pdfSettings, type PreviewTheme } from "./config.ts";
+import { resolveTheme, scrollSyncSettings, pdfSettings, codeBlockLineNumbers, type PreviewTheme } from "./config.ts";
 import puppeteer, { type PaperFormat } from "puppeteer";
 
 type TextChangeMessage = {
@@ -140,6 +140,8 @@ export function activate(context: vscode.ExtensionContext) {
    */
   const handleDocChange = async (editor: vscode.TextEditor, document: vscode.TextDocument) => {
     if (!panel) return;
+    renderer.codeFeatures = true;
+    renderer.codeLineNumbers = codeBlockLineNumbers();
     const html = await renderer.fullRender(makeEditorDoc(document), true);
     updateMapLastNext();
 
@@ -347,6 +349,9 @@ export function activate(context: vscode.ExtensionContext) {
                 if (editor && editor.document.languageId === "markdown" && panel) {
                   handleDocChange(editor, editor.document);
                 }
+              } else if (message.command === "copyCodeToClipboard") {
+                const text = typeof message.text === "string" ? message.text : "";
+                if (text) void vscode.env.clipboard.writeText(text);
               }
             },
             null,
@@ -426,7 +431,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
         vscode.window.showInformationMessage("Start exporting Markdown file to raw HTML...");
 
-        const html = await noteProcess(editor.document.getText(), 0, 0, true);
+        const html = await noteProcess(editor.document.getText(), 0, 0, true, {
+          codeFeatures: true,
+          codeLineNumbers: codeBlockLineNumbers(),
+        });
         const savePath = editor.document.uri.fsPath.replace(/\.md$/, ".html");
         const htmlUri = editor.document.uri.with({ path: savePath });
         const writeData = new TextEncoder().encode(String(html));
@@ -502,6 +510,11 @@ export function activate(context: vscode.ExtensionContext) {
                 katexCssPath,
                 folderPath,
                 featherSvgPath,
+                undefined,
+                {
+                  codeFeatures: true,
+                  codeLineNumbers: codeBlockLineNumbers(),
+                },
               );
 
               // Use Puppeteer to convert HTML to PDF
@@ -578,6 +591,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e.affectsConfiguration("notesaw")) return;
       applyLiveSettings();
+      // The code-block chrome (line numbers on/off) is baked into the rendered
+      // HTML, so a change needs a fresh full render to take effect.
+      if (e.affectsConfiguration("notesaw.codeBlock")) {
+        const editor = vscode.window.activeTextEditor;
+        if (panel && editor) handleDocChange(editor, editor.document);
+      }
     }),
     vscode.window.onDidChangeActiveColorTheme(() => {
       applyLiveSettings();
