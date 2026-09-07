@@ -113,11 +113,8 @@ describe("incremental renderer: DOM block consistency under edited pressure", ()
   // Under vscode-faithful edit geometry this ended A: the engine never chooses a
   // full fallback and the webview never requests one (locator anchors stay real)
   // across the whole 150-step run; the engine/webview `fullFallbackCount`/`refreshCount`
-  // invariants hold. The remaining failure is narrower and genuine: in a few pure-partial
-  // windows the re-fragmented block CONTENTS differ from a clean full render (a real
-  // partial-window bug, NOT a full-fallback bug — never to be masked by a full render).
-  // Recorded as expected failure until that pure-partial divergence is root-caused.
-  it.fails("keeps DOM block contents equal to a full render across 150 random edits", async () => {
+  // invariants hold.
+  it("keeps DOM block contents equal to a full render across 150 random edits", async () => {
     const totalSteps = 150;
     const segment = 5;
     const rand = mulberry32(777001);
@@ -152,5 +149,5 @@ describe("incremental renderer: DOM block consistency under edited pressure", ()
         host.window.document.body.innerHTML = await renderer.fullRender(editor, true);
       }
     }
-  });
+  }, 120000);
 });

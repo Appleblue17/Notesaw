@@ -6,7 +6,7 @@ import { IncrementalRenderer } from "../src/incremental-renderer.ts";
 import { MockEditor, resetEngineState } from "./helpers/render-sim.ts";
 import { bootstrapWebview, blockContents } from "./helpers/webview-dom.ts";
 
-const LONG_NOTE = fileURLToPath(new URL("../long-note.md", import.meta.url));
+const LONG_NOTE = fileURLToPath(new URL("./long-note.md", import.meta.url));
 
 function longNoteText(): string {
   return readFileSync(LONG_NOTE, "utf-8");

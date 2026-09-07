@@ -47,7 +47,7 @@ async function truthBlocks(doc: string): Promise<string[]> {
 }
 
 describe("true continuous accumulation (per-step truth via isolated state)", () => {
-  it.fails("replays press and reports the first step where incremental DOM != full", async () => {
+  it("replays press and reports the first step where incremental DOM != full", async () => {
     const r = new IncrementalRenderer();
     const host = bootstrapWebview();
     const seedText = ["@def Header {", "    intro", "}", "", "@note Middle", "{", "    detail", "}", "", "@example Footer {", "    tail", "}"].join("\n");

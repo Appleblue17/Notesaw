@@ -180,56 +180,55 @@ export class IncrementalRenderer {
     let y = y0;
     const fat = fat0;
 
-    // Finds the sibling of `id` (same father) that comes right AFTER `id` — i.e.
-    // whose span begins after `id`'s span ENDS. Stale shadow ids from earlier
-    // re-renders may still share the father and START after `id` but OVERLAP its
-    // span (e.g. an old duplicate of the same region); those are not real siblings
-    // and must not widen the range onto a phantom block.
-    const findNextSibling = (id: number): number | undefined => {
-      const father = mapFather[id];
-      const afterEnd = mapEndLine[id];
-      let best: { id: number; start: number } | undefined;
-      // Only a block still referenced by `map` is a real, current sibling. Stale
-      // ids from earlier re-renders linger in the span arrays (with no map row) and
-      // would otherwise be offered as phantom next siblings.
-      const mapped = new Set<number>();
-      for (const v of map) if (v !== undefined && v > 0) mapped.add(v);
-      for (let i = 1; i <= counter; i++) {
-        if (!mapped.has(i)) continue;
-        if (i === id) continue;
-        if (mapFather[i] !== father) continue;
-        const s = mapStartLine[i];
-        if (s === undefined || s <= 0) continue;
-        if (s > afterEnd && (!best || s < best.start)) best = { id: i, start: s };
-      }
-      return best?.id;
-    };
-
-    // Right-edge extension: if the edit range reaches y's closing line, y may have
-    // swallowed its next sibling (that sibling's `}` acts as y's new closer, or the
-    // block boundary moved). Re-render through that sibling so the parser sees it.
-    if (endLine >= mapEndLine[y]) {
-      y = findNextSibling(y) ?? y;
-    }
-
+    // Bottom of the re-render window in old coordinates, then new. The window is
+    // [xLine..newYLine]; everything between is cleared and rebuilt from a fresh
+    // fragment render, so the parser re-owns those rows from the post-edit text.
     const xLine = Math.min(mapStartLine[x], startLine);
-    const yLine = Math.max(mapEndLine[y], endLine);
-    const newYLine = yLine + deltaLength;
-    const updateMapLines = (line: number, start: number, end: number) => {
-      while (line !== undefined) {
+    let yLine = Math.max(mapEndLine[y], endLine); // old-coord bottom pivot
+    let newYLine = yLine + deltaLength; // new-coord bottom
+
+    // Right edge by source text (no block kinds, no sibling-id scans). If this edit
+    // reached / removed the closer of the far container `x` itself, `x` is left open
+    // right after our window and the parser will swallow subsequent rows until a `}`
+    // at the same indentation column. We walk those rows; if the swallow passes our
+    // window bottom we widen it to the re-closing `}` (or to EOF when none). The
+    // fragment is re-parsed from scratch, so widening only adds rows that re-fold
+    // into `x`; untouched blocks land at/after the returned re-close.
+    let widened = false;
+    if (endLine >= mapEndLine[y]) {
+      const fatLimit = mapEndLine[fat] + deltaLength;
+      if (newYLine < fatLimit) {
+        const openerCol = this.openerColumn(doc, mapStartLine[x] ?? 1);
+
+        newYLine++;
+        widened = true;
+
+        while (newYLine < fatLimit) {
+          // Try to widen the window to the next `}` that closes the container opened at `openerCol`.
+          const line = doc.lineText(newYLine);
+          const col = this.openerColumn(doc, newYLine);
+          if (col === openerCol && line.trimStart()[0] === "}") {
+            break;
+          }
+          newYLine++;
+        }
+      }
+    }
+    const updateMapLines = (id: number, start: number, end: number) => {
+      while (id !== undefined) {
         let flag = false;
-        if (start < mapStartLine[line]) {
-          mapStartLine[line] = start;
+        if (start < mapStartLine[id]) {
+          mapStartLine[id] = start;
           flag = true;
         }
-        if (end > mapEndLine[line]) {
-          mapEndLine[line] = end;
+        if (end > mapEndLine[id]) {
+          mapEndLine[id] = end;
           flag = true;
         }
         if (!flag) break;
-        line = mapFather[line];
-        start = Math.min(start, mapStartLine[line]);
-        end = Math.max(end, mapEndLine[line]);
+        id = mapFather[id];
+        start = Math.min(start, mapStartLine[id]);
+        end = Math.max(end, mapEndLine[id]);
       }
     };
 
@@ -244,6 +243,21 @@ export class IncrementalRenderer {
       for (let i = this.totalLines; i > yLine; i--) map[i + deltaLength] = map[i];
     } else {
       for (let i = yLine + 1; i <= this.totalLines; i++) map[i + deltaLength] = map[i];
+    }
+
+    // Re-anchor `y` to the current sibling (a direct child of `fat`) that contains
+    // the bottom row, so the DOM splice trims through the widened fold. Operate on
+    // the map AFTER the row shift (new coords) but BEFORE clearing.
+    if (widened && map.length > newYLine) {
+      const owner = map[newYLine] as number | undefined;
+      if (owner !== undefined && owner > 0) {
+        let anc = owner;
+        while (anc && mapFather[anc] !== fat) anc = mapFather[anc];
+        if (mapFather[anc] === fat) {
+          y = anc;
+          newYLine = mapEndLine[y]; // Must extend the window to the new bottom of the re-anchored block.
+        } else return this.full(`Failed to re-anchor y: owner=${owner} fat=${fat}`);
+      } else return this.full(`Failed to re-anchor y: owner=${owner} fat=${fat}`);
     }
     for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
     st.shrinkMapArray(editorTotalLines);
@@ -262,7 +276,35 @@ export class IncrementalRenderer {
 
     this.totalLines = editorTotalLines;
 
-    return { kind: "partial", raw: html, baseLine: xLine - 1, fatherId: fat, labelRoot: false, x, y, fat };
+    return {
+      kind: "partial",
+      raw: html,
+      baseLine: xLine - 1,
+      fatherId: fat,
+      labelRoot: false,
+      x,
+      y,
+      fat,
+    };
+  }
+
+  /**
+   * 1-based column of the first non-space char of a row (0 if blank). Notesaw opens
+   * a block at some column and closes it with a `}` on the SAME column.
+   */
+  private openerColumn(doc: EditorDoc, row: number): number {
+    if (row <= 0 || row > doc.lineCount) return 0;
+    // Count the leading spaces/tabs of the line, then add 1 for 1-based column.
+    // One tab = 4 spaces (the parser's tab width). This is the same logic as `src/core.ts` `noteProcess()`.
+    const line = doc.lineText(row);
+    let total = 0;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === " ") total++;
+      else if (ch === "\t") total += 4;
+      else break;
+    }
+    return total + 1;
   }
 
   /** Returns the full text of the document adapter. */

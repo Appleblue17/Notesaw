@@ -56,12 +56,10 @@ async function truthBlocks(doc: string): Promise<string[]> {
  * (`{kind:"full"}`) or the WEBVIEW requests it (`requestFullRefresh`) — is treated as
  * a first-class finding and counted, never silently swallowed. This runs the full
  * randomized sequence to completion, tallies every fallback, and asserts ZERO as the
- * invariant. Currently the engine degrades on ~1/5 steps, so this is recorded
- * `it.fails`: the summary line is what makes each degradation visible and lets us
- * track progress toward zero.
+ * invariant.
  */
 describe("incremental full-render fallbacks are observable (directive 1)", () => {
-  it.fails("runs press with ZERO full fallbacks (engine or webview) across 150 steps", async () => {
+  it("runs press with ZERO full fallbacks (engine or webview) across 150 steps", async () => {
     const r = new IncrementalRenderer();
     const host = bootstrapWebview();
     let e = new MockEditor(SEED_DOC);

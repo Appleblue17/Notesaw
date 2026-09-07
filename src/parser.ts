@@ -471,8 +471,14 @@ function parseNote(text: string): NoteNode {
       if (ast) selfNode.children.push(ast);
       indentLevel--;
     }
-    selfNode.position!.end = getPosition(index + 1);
-    blockStack[blockStack.length - 1].current = index + 1;
+    // `lines`/`columns` hold one entry per input offset (0..len-1). A manual close at
+    // EOF passes `index === length`, so `index+1` reads past the array and yields an
+    // out-of-range `getPosition` (line/column undefined). Clamp to the last valid
+    // offset so `.end` is a real position and rehype keeps the node addressable.
+    const hi = lines.length - 1;
+    const endIndex = index >= hi ? hi : index + 1;
+    selfNode.position!.end = getPosition(Math.max(0, endIndex));
+    blockStack[blockStack.length - 1].current = endIndex + 1;
   };
 
   for (let index = 0; index < length; ) {

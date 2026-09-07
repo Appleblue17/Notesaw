@@ -119,7 +119,16 @@ export class SpanState {
    */
   transformNote(tree: Element, baseLine: number, fatherId: number, labelRoot: boolean): void {
     if (!tree || !tree.children.length) return;
-    tree.position = tree.children[0].position;
+    const firstChild = tree.children[0];
+    const lastChild = tree.children[tree.children.length - 1];
+    if (!firstChild.position || !lastChild.position) {
+      tree.position = undefined;
+    } else {
+      tree.position = {
+        start: firstChild.position.start,
+        end: lastChild.position.end,
+      };
+    }
 
     visit(tree, "element", (node: Element) => {
       const classNames = node.properties?.["class"]?.toString();
