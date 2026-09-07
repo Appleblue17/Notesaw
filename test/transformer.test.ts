@@ -55,4 +55,15 @@ describe("transformer: html output", () => {
     const html = await renderFragment(doc, { baseLine: 0, fatherId: 0, labelRoot: true, spanState: state });
     expect(html).toContain('href="#chevron-right"');
   });
+
+  it("renders icon svg with round stroke caps so dotted accents are not lost", async () => {
+    // help-circle draws its "?"-tail dot as a near-zero-length <line>; with the
+    // default butt line-cap that segment paints nothing and the dot disappears.
+    // Feather only shows it with `stroke-linecap: round` on the consuming svg.
+    const doc = "@question A+B Problem {\n    A+B=C\n}";
+    const html = await renderFragment(doc, { baseLine: 0, fatherId: 0, labelRoot: true, spanState: state });
+    expect(html).toContain('href="#help-circle"');
+    expect(html).toMatch(/<svg[^>]*stroke-linecap: round/);
+    expect(html).toMatch(/<svg[^>]*stroke-linejoin: round/);
+  });
 });

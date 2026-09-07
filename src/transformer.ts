@@ -290,7 +290,7 @@ function svgIcon(stroke: string, icon: string): Element {
   return {
     type: "element",
     tagName: "svg",
-    properties: { class: "block-icon", style: `stroke: ${stroke}; fill: transparent` },
+    properties: { class: "block-icon", style: `stroke: ${stroke}; fill: transparent; stroke-linecap: round; stroke-linejoin: round` },
     children: [
       {
         type: "element",
