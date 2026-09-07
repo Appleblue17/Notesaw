@@ -205,5 +205,15 @@ window.addEventListener("message", (event) => {
       scrollSyncThreshold = event.data.threshold || scrollSyncThreshold;
       crossPageThreshold = event.data.crossPageThreshold || crossPageThreshold;
       break;
+    case "updateTheme":
+      // Re-apply the resolved light/dark theme without a full re-render. An
+      // undefined value means "follow system", so the attribute is removed and
+      // the CSS `prefers-color-scheme` media query takes over.
+      if (event.data.theme) {
+        document.body.setAttribute("data-theme", event.data.theme);
+      } else {
+        document.body.removeAttribute("data-theme");
+      }
+      break;
   }
 });

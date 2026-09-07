@@ -15,7 +15,8 @@ import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
 import { setWorkspaceUri } from "./env.ts";
 import { IncrementalRenderer, type EditorDoc, type TextChange } from "./incremental-renderer.ts";
-import puppeteer from "puppeteer";
+import { resolveTheme, scrollSyncSettings, pdfSettings, type PreviewTheme } from "./config.ts";
+import puppeteer, { type PaperFormat } from "puppeteer";
 
 type TextChangeMessage = {
   editor: vscode.TextEditor;
@@ -108,6 +109,28 @@ export function activate(context: vscode.ExtensionContext) {
       next,
       lastStartLine: last !== undefined ? mapStartLine[last] : undefined,
       lastEndLine: last !== undefined ? mapEndLine[last] : undefined,
+    });
+  };
+
+  /**
+   * Re-applies user configuration to an open preview without rebuilding it:
+   * pushes fresh scroll-sync settings and resolves the live theme to the
+   * webview's `data-theme` attribute. No-op when no panel is open.
+   */
+  const applyLiveSettings = () => {
+    if (!panel) return;
+
+    const scroll = scrollSyncSettings();
+    panel.webview.postMessage({
+      command: "setScrollSyncConfig",
+      mode: scroll.mode,
+      threshold: scroll.threshold,
+      crossPageThreshold: scroll.crossPageThreshold,
+    });
+
+    panel.webview.postMessage({
+      command: "updateTheme",
+      theme: resolveTheme(vscode.window.activeColorTheme.kind),
     });
   };
 
@@ -362,19 +385,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         setWorkspaceUri(workspaceUri.toString());
 
-        const prefTheme =
-          vscode.workspace.getConfiguration("notesaw").get<string>("theme") || "follow-system";
-        let theme: "light" | "dark" | undefined = undefined;
-        if (prefTheme === "follow-vscode") {
-          // Apply VSCode theme styles
-          theme =
-            vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? "dark" : "light";
-        } else if (prefTheme === "light" || prefTheme === "dark") {
-          theme = prefTheme;
-        } else {
-          theme = undefined;
-        }
-
+        const theme: PreviewTheme = resolveTheme(vscode.window.activeColorTheme.kind);
         // console.log("Starting to initialize webview with theme:", theme);
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(
@@ -392,17 +403,13 @@ export function activate(context: vscode.ExtensionContext) {
         handleDocChange(editor, editor.document);
 
         // Get user configuration
-        const config = vscode.workspace.getConfiguration("notesaw");
-        const scrollSyncMode = config.get<string>("scrollSync.mode") || "instant";
-        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.1;
-        const scrollCrossPageThreshold =
-          config.get<number>("scrollSync.scrollCrossPageThreshold") || 1;
+        const scroll = scrollSyncSettings();
 
         panel.webview.postMessage({
           command: "setScrollSyncConfig",
-          mode: scrollSyncMode,
-          threshold: scrollSyncThreshold,
-          crossPageThreshold: scrollCrossPageThreshold,
+          mode: scroll.mode,
+          threshold: scroll.threshold,
+          crossPageThreshold: scroll.crossPageThreshold,
         });
       }
     }),
@@ -443,23 +450,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Get user configuration
-        const config = vscode.workspace.getConfiguration("notesaw");
-        const pdfOptions = config.get<any>("pdfOptions") || {};
-        const puppeteerPath = pdfOptions.puppeteerPath || "";
-        const format = pdfOptions.format || "A4";
-        const forceWhiteBackground = pdfOptions.forceWhiteBackground || false;
-        const landscape = pdfOptions.landscape || false;
-        const margin = pdfOptions.margin || {
-          top: "10mm",
-          bottom: "10mm",
-          left: "15mm",
-          right: "15mm",
-        };
-        const scale = pdfOptions.scale || 1.0;
-        const displayHeaderFooter = pdfOptions.displayHeaderFooter || false;
-        const headerTemplate = pdfOptions.headerTemplate || "<div></div>";
-        const footerTemplate = pdfOptions.footerTemplate || "<div></div>";
-
+        const pdf = pdfSettings();
         const noteCssPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
@@ -531,7 +522,7 @@ export function activate(context: vscode.ExtensionContext) {
               try {
                 browser = await puppeteer.launch({
                   headless: true,
-                  executablePath: puppeteerPath || undefined,
+                  executablePath: pdf.puppeteerPath || undefined,
                   args: [
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -553,15 +544,15 @@ export function activate(context: vscode.ExtensionContext) {
 
               await page.pdf({
                 path: pdfPath,
-                format,
-                landscape,
-                margin,
-                displayHeaderFooter,
-                headerTemplate,
-                footerTemplate,
-                scale,
-                omitBackground: !forceWhiteBackground,
-                printBackground: !forceWhiteBackground,
+                format: pdf.format as PaperFormat,
+                landscape: pdf.landscape,
+                margin: pdf.margin,
+                displayHeaderFooter: pdf.displayHeaderFooter,
+                headerTemplate: pdf.headerTemplate,
+                footerTemplate: pdf.footerTemplate,
+                scale: pdf.scale,
+                omitBackground: !pdf.forceWhiteBackground,
+                printBackground: !pdf.forceWhiteBackground,
               });
               await browser.close();
 
@@ -577,6 +568,19 @@ export function activate(context: vscode.ExtensionContext) {
           },
         );
       }
+    }),
+  );
+
+  // Apply Notesaw setting changes and VS Code color-theme switches live to an
+  // open preview (theme, scroll-sync mode/thresholds) instead of requiring the
+  // preview to be reopened.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (!e.affectsConfiguration("notesaw")) return;
+      applyLiveSettings();
+    }),
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      applyLiveSettings();
     }),
   );
 }

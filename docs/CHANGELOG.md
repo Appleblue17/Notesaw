@@ -6,6 +6,7 @@
 
 - Adopt authoritative editor geometry end-to-end: the preview engine speaks one exact `range`+`insert` edit model (0-based positions) shared with the editor and the render core, instead of inferring whole-line replacements.
 - Incremental editing is now reliable: the preview re-renders only the changed range and stays faithful to a full render even across long, sustained editing sessions; previously partial updates could drift from the true document over many edits.
+- Notesaw settings (theme and scroll-sync mode/thresholds) now apply to an open preview immediately, and the preview tracks VS Code color-theme switches, without needing to reopen the preview. Configuration reads are centralized in `src/config.ts` (typed helpers whose defaults mirror the `package.json` schema) instead of being re-read with ad-hoc defaults at each call site.
 
 ### Bug Fixes
 
@@ -16,8 +17,7 @@
 - Relative image paths render correctly even when no base directory is configured (previously they could crash the pipeline).
 - The preview self-heals if an update cannot locate its target region, instead of getting stuck.
 - Small dotted accents inside icons (for example the dot under `help-circle`'s question mark) no longer vanish: block icons are drawn with round stroke caps, so Feather's zero-length "dot" segments render as a visible dot.
-- Block icon, label, and left-border accent colors are no longer baked in at a fixed washed-out lightness. The accent hue is stored per block and its lightness is chosen per theme, so **light mode** uses a darker accent for adequate contrast on white, while **dark mode** keeps the vivid original look;
-
+- Block icon, label, and left-border accent colors are no longer baked in at a fixed washed-out lightness. The accent hue is stored per block and its lightness is chosen per theme, so **light mode** uses a darker accent for adequate contrast on white, while **dark mode** keeps the vivid original look.
 
 ### Documentation
 
