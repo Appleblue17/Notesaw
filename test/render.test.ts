@@ -18,7 +18,9 @@ describe("render core", () => {
     expect(html).toContain("definition-block-container");
     expect(html).toContain("block-label");
     expect(html).toContain('href="#compass"');
-    expect(html).toMatch(/hsl\(\d+, 80%, 70%\)/);
+    // accent hue is stored as a CSS variable per block (lightness is theme-aware in CSS)
+    expect(html).toMatch(/--block-hue:\s*\d+/);
+    expect(html).not.toMatch(/hsl\(/);
     expect(html).toContain("Markdown is a lightweight markup language.");
   });
 

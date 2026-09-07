@@ -15,6 +15,9 @@
 - Stale "ghost" region anchors from earlier edits are excluded; an incremental update now resolves to a real region or cleanly re-renders the document instead of failing on a phantom id.
 - Relative image paths render correctly even when no base directory is configured (previously they could crash the pipeline).
 - The preview self-heals if an update cannot locate its target region, instead of getting stuck.
+- Small dotted accents inside icons (for example the dot under `help-circle`'s question mark) no longer vanish: block icons are drawn with round stroke caps, so Feather's zero-length "dot" segments render as a visible dot.
+- Block icon, label, and left-border accent colors are no longer baked in at a fixed washed-out lightness. The accent hue is stored per block and its lightness is chosen per theme, so **light mode** uses a darker accent for adequate contrast on white, while **dark mode** keeps the vivid original look;
+
 
 ### Documentation
 

@@ -212,17 +212,20 @@ export class SpanState {
     const blockLabel = className.slice(0, -19);
     const blockLabelCap = blockLabel.charAt(0).toUpperCase() + blockLabel.slice(1);
     const labelHash = hashString(blockLabel);
-    const hslColor = `hsl(${labelHash % 360}, 80%, 70%)`;
+    // Each block stores only its accent hue; saturation/lightness live in the
+    // stylesheet so light mode can darken accent colors for contrast while dark
+    // mode keeps the vivid original look.
+    const hue = labelHash % 360;
     node.properties = {
       class: "inline-block-container " + blockLabel + "-inline-block-container",
-      style: `border-left-color: ${hslColor};`,
+      style: `--block-hue: ${hue};`,
     };
     const icon = iconMap(blockLabel);
-    const iconNode: Element = svgIcon(hslColor, icon);
+    const iconNode: Element = svgIcon(icon);
     const labelNode: Element = {
       type: "element",
       tagName: "span",
-      properties: { class: "block-label", style: `color: ${hslColor};` },
+      properties: { class: "block-label" },
       children: [{ type: "text", value: blockLabelCap }],
     };
     node.children = [iconNode, labelNode, ...node.children];
@@ -233,10 +236,10 @@ export class SpanState {
     const blockLabel = className.slice(0, -12);
     const blockLabelCap = blockLabel.charAt(0).toUpperCase() + blockLabel.slice(1);
     const labelHash = hashString(blockLabel);
-    const hslColor = `hsl(${labelHash % 360}, 80%, 70%)`;
+    const hue = labelHash % 360;
     node.properties = {
       class: "block-container " + blockLabel + "-block-container",
-      style: `border-left-color: ${hslColor};`,
+      style: `--block-hue: ${hue};`,
     };
 
     const titleNode: Element = {
@@ -252,11 +255,11 @@ export class SpanState {
       children: [],
     };
 
-    const iconNode: Element = svgIcon(hslColor, iconMap(blockLabel));
+    const iconNode: Element = svgIcon(iconMap(blockLabel));
     const labelNode: Element = {
       type: "element",
       tagName: "span",
-      properties: { class: "block-label", style: `color: ${hslColor};` },
+      properties: { class: "block-label" },
       children: [{ type: "text", value: blockLabelCap }],
     };
     titleNode.children.push(iconNode, labelNode);
@@ -286,11 +289,11 @@ function updatePosition(node: Element) {
   }
 }
 
-function svgIcon(stroke: string, icon: string): Element {
+function svgIcon(icon: string): Element {
   return {
     type: "element",
     tagName: "svg",
-    properties: { class: "block-icon", style: `stroke: ${stroke}; fill: transparent; stroke-linecap: round; stroke-linejoin: round` },
+    properties: { class: "block-icon" },
     children: [
       {
         type: "element",

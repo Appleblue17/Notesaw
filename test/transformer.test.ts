@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderFragment } from "../src/core.ts";
 import { SpanState } from "../src/transformer.ts";
+
+const noteCssPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "assets", "styles", "note.css");
+const noteCss = fs.readFileSync(noteCssPath, "utf8");
 
 let state: SpanState;
 
@@ -42,12 +48,16 @@ describe("transformer: id and Map bookkeeping", () => {
 });
 
 describe("transformer: html output", () => {
-  it("produces a styled container with icon and auto color", async () => {
+  it("produces a styled container with icon and stores the accent hue as a CSS variable", async () => {
     const doc = "@def Markdown {\n    a lightweight markup language\n}";
     const html = await renderFragment(doc, { baseLine: 0, fatherId: 0, labelRoot: true, spanState: state });
+    // The accent is no longer a fixed light 70% colour resolved at render time: the
+    // block stores only its hue via `--block-hue`, letting note.css pick a darker
+    // lightness in light mode for contrast while keeping the vivid look in dark mode.
     expect(html).toContain("definition-block-container");
     expect(html).toContain('href="#compass"');
-    expect(html).toContain(`hsl(`);
+    expect(html).toMatch(/--block-hue:\s*\d+/);
+    expect(html).not.toContain("hsl(");
   });
 
   it("falls back to chevron-right icon for unknown labels", async () => {
@@ -56,14 +66,19 @@ describe("transformer: html output", () => {
     expect(html).toContain('href="#chevron-right"');
   });
 
-  it("renders icon svg with round stroke caps so dotted accents are not lost", async () => {
-    // help-circle draws its "?"-tail dot as a near-zero-length <line>; with the
-    // default butt line-cap that segment paints nothing and the dot disappears.
-    // Feather only shows it with `stroke-linecap: round` on the consuming svg.
-    const doc = "@question A+B Problem {\n    A+B=C\n}";
-    const html = await renderFragment(doc, { baseLine: 0, fatherId: 0, labelRoot: true, spanState: state });
-    expect(html).toContain('href="#help-circle"');
-    expect(html).toMatch(/<svg[^>]*stroke-linecap: round/);
-    expect(html).toMatch(/<svg[^>]*stroke-linejoin: round/);
+  it("drives accent colour, round stroke caps and theme contrast from note.css", () => {
+    // Feather draws small accents such as the "?"-tail dot as a near-zero-length
+    // <line>; with the default butt line-cap that segment paints nothing and the
+    // dot disappears. Only `stroke-linecap: round` makes it a visible dot.
+    expect(noteCss).toMatch(/\.block-icon\s*{[^}]*stroke-linecap:\s*round/s);
+    // Accent colour comes from the per-block `--block-hue` combined with a
+    // theme-dependent lightness built in CSS.
+    expect(noteCss).toMatch(/--block-accent\s*:\s*hsl\(var\(--block-hue[^;]*\)/);
+    expect(noteCss).toMatch(/stroke:\s*var\(--block-accent\)/);
+    expect(noteCss).toMatch(/color:\s*var\(--block-accent\)/);
+    // Light mode darkens the accent (45%) versus the vivid dark-mode default (70%).
+    expect(noteCss).toMatch(/--block-lightness:\s*70%/);
+    expect(noteCss).toMatch(/--block-lightness:\s*45%/);
+    expect(noteCss).toMatch(/body\[data-theme="light"\]\s*{[^}]*--block-lightness:\s*45%/s);
   });
 });
