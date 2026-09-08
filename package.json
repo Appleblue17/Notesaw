@@ -2,7 +2,7 @@
   "name": "notesaw-preview",
   "displayName": "Notesaw Preview",
   "description": "An extension markup language of Markdown designed for note-taking and documentation.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "Appleblue17",
   "engines": {
     "vscode": "^1.100.0"
@@ -40,7 +40,7 @@
         "command": "notesaw.showPreview",
         "title": "Start Notesaw preview to the Side",
         "category": "Notesaw",
-        "icon": "$(preview)"
+        "icon": "$(output)"
       },
       {
         "command": "notesaw.export_to_html",
@@ -99,6 +99,13 @@
           "minimum": 0,
           "description": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages.",
           "markdownDescription": "Only works when notesaw.scrollSync.mode is set to 'smooth' or 'intelligent'. To prevent excessive synchronization when fast scrolling across pages, smooth scroll will only be triggered when the number of pages to scroll across is less than this threshold. Set to 0 to always enable smooth scroll regardless of the number of pages."
+        },
+        "notesaw.codeBlock.lineNumbers": {
+          "order": 20,
+          "type": "boolean",
+          "default": true,
+          "description": "Show line numbers on the left of fenced code blocks in the preview and exports.",
+          "markdownDescription": "Show line numbers on the left of fenced code blocks in the preview and exports. The language label and copy button are always shown."
         },
         "notesaw.pdfOptions.puppeteerPath": {
           "order": 100,
@@ -196,7 +203,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
     "convert": "node ./out/convert.js"
   },
   "dependencies": {
@@ -217,6 +225,7 @@
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",
+    "@types/jsdom": "^30.0.0",
     "@types/mdast": "^4.0.4",
     "@types/mocha": "^10.0.10",
     "@types/node": "~20.17.58",
@@ -228,6 +237,8 @@
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
     "eslint": "^9.39.2",
-    "typescript": "^5.9.3"
+    "jsdom": "^30.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

@@ -11,28 +11,34 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import * as path from "path";
-import { noteProcessInit, noteProcess } from "./note-extention.ts";
+import { noteProcessInit, noteProcess } from "./note-extension.ts";
 import noteProcessConvert from "./note-convert.ts";
-import {
-  counter,
-  setCounter,
-  map,
-  mapStartLine,
-  mapEndLine,
-  mapDepth,
-  mapFather,
-  extendMapArray,
-  shrinkMapArray,
-} from "./transformer.ts";
 import { setWorkspaceUri } from "./env.ts";
-import puppeteer from "puppeteer";
+import { IncrementalRenderer, type EditorDoc, type TextChange } from "./incremental-renderer.ts";
+import { resolveTheme, scrollSyncSettings, pdfSettings, codeBlockLineNumbers, type PreviewTheme } from "./config.ts";
+import puppeteer, { type PaperFormat } from "puppeteer";
 
 type TextChangeMessage = {
   editor: vscode.TextEditor;
   change: vscode.TextDocumentContentChangeEvent;
 };
 
-let totalLines = 0;
+/** Adapts a vscode TextDocument to the minimal surface the render engine needs. */
+function makeEditorDoc(document: vscode.TextDocument): EditorDoc {
+  return {
+    lineCount: document.lineCount,
+    lineText: (line) => document.lineAt(line - 1).text,
+    getTextBetweenLines: (start, end) => {
+      const range = new vscode.Range(
+        start - 1,
+        0,
+        end - 1,
+        document.lineAt(end - 1).text.length,
+      );
+      return document.getText(range);
+    },
+  };
+}
 
 /**
  * Activates the Notesaw extension
@@ -47,30 +53,28 @@ export function activate(context: vscode.ExtensionContext) {
   let mapLast: (number | undefined)[] = []; // Maps editor line numbers to block IDs for scrolling
   let mapNext: (number | undefined)[] = []; // Maps editor line numbers to next block IDs for boundary detection
 
+  // Shared incremental-rendering engine (single source of truth for partial
+  // updates; also exercised directly by the unit-test suite).
+  const renderer = new IncrementalRenderer();
+
   // Message queue for pending text changes to throttle updates
   const messageQueue: TextChangeMessage[] = [];
   let isProcessing = false;
 
   const cleanUp = () => {
     // console.log("Cleaning up...");
-    totalLines = 0;
+    renderer.reset();
     activeCursorLine = 0;
     visibleRange = undefined;
     mapLast = [];
     mapNext = [];
-    setCounter(0);
-
-    map.length = 1;
-    mapStartLine.length = 1;
-    mapEndLine.length = 1;
-    mapDepth.length = 1;
-    mapFather.length = 1;
 
     messageQueue.length = 0;
     isProcessing = false;
   };
 
   const updateMapLastNext = () => {
+    const { map } = renderer.spanState;
     mapLast = [...map];
     mapNext = [...map];
     for (let i = 1; i < map.length; i++) {
@@ -95,6 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
       next = mapNext[line];
 
     // console.log("Syncing preview:", { line, last, next });
+    const { mapStartLine, mapEndLine } = renderer.spanState;
     panel.webview.postMessage({
       command: "syncPreview",
       line,
@@ -108,17 +113,36 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   /**
+   * Re-applies user configuration to an open preview without rebuilding it:
+   * pushes fresh scroll-sync settings and resolves the live theme to the
+   * webview's `data-theme` attribute. No-op when no panel is open.
+   */
+  const applyLiveSettings = () => {
+    if (!panel) return;
+
+    const scroll = scrollSyncSettings();
+    panel.webview.postMessage({
+      command: "setScrollSyncConfig",
+      mode: scroll.mode,
+      threshold: scroll.threshold,
+      crossPageThreshold: scroll.crossPageThreshold,
+    });
+
+    panel.webview.postMessage({
+      command: "updateTheme",
+      theme: resolveTheme(vscode.window.activeColorTheme.kind),
+    });
+  };
+
+  /**
    * Updates the preview webview with content from the given document
    * @param document The text document to render in the preview
    */
   const handleDocChange = async (editor: vscode.TextEditor, document: vscode.TextDocument) => {
     if (!panel) return;
-    totalLines = editor.document.lineCount;
-    extendMapArray(totalLines);
-
-    // console.log("Start rendering document in preview...");
-    const html = await noteProcess(document.getText(), 0, 0, true);
-    // console.log(html);
+    renderer.codeFeatures = true;
+    renderer.codeLineNumbers = codeBlockLineNumbers();
+    const html = await renderer.fullRender(makeEditorDoc(document), true);
     updateMapLastNext();
 
     panel.webview.postMessage({
@@ -126,136 +150,37 @@ export function activate(context: vscode.ExtensionContext) {
       html,
     });
 
-    // console.log("Total lines:", totalLines);
-    // console.log("Map:", map);
-    // console.log("Map Start Line:", mapStartLine);
-    // console.log("Map End Line:", mapEndLine);
-
     handlePreviewSync();
   };
 
   const handleTextChange = async ({ editor, change }: TextChangeMessage) => {
     if (!panel) return;
-    const startLine = change.range.start.line + 1;
-    const endLine = change.range.end.line + 1;
-    const textLines = change.text.split(/\r?\n/).length;
-    // console.log("/------ Start Handling Change ------/");
-    // console.log("startLine:", startLine, "endLine:", endLine, "textLines:", textLines);
-
-    const getTextFromLineRange = (start: number, end: number) => {
-      const range = new vscode.Range(
-        start - 1,
-        0,
-        end - 1,
-        editor.document.lineAt(end - 1).text.length,
-      );
-      return editor.document.getText(range);
+    // Forward the change as a true VSCode edit (`range`+`text` with real Positions)
+    // so the engine receives exact geometry instead of a line-collapsed guess.
+    const textChange: TextChange = {
+      range: {
+        start: { line: change.range.start.line, character: change.range.start.character },
+        end: { line: change.range.end.line, character: change.range.end.character },
+      },
+      text: change.text,
     };
-    const findLCA = (x: number, y: number) => {
-      while (mapDepth[x] > mapDepth[y]) x = mapFather[x];
-      while (mapDepth[y] > mapDepth[x]) y = mapFather[y];
-      if (x === y) return [x, x, mapFather[x]];
+    const decision = await renderer.update(makeEditorDoc(editor.document), textChange);
 
-      while (mapFather[x] !== mapFather[y]) {
-        x = mapFather[x];
-        y = mapFather[y];
-      }
-      return [x, y, mapFather[x]];
-    };
-
-    const newEndLine = startLine + textLines - 1;
-    const deltaLength = newEndLine - endLine;
-
-    let last = mapLast[startLine] !== undefined ? mapLast[startLine] : mapNext[startLine];
-    let next = mapNext[endLine] !== undefined ? mapNext[endLine] : mapLast[endLine];
-    if (last === undefined || next === undefined) {
-      handleDocChange(editor, editor.document);
+    if (decision.kind === "full") {
+      // Affected blocks could not be determined; fall back to a full re-render.
+      await handleDocChange(editor, editor.document);
       return;
-    }
-    const [x, y, fat] = findLCA(last, next);
-
-    // console.log("Last:", last, "Next:", next, "lca: ", x, y, fat);
-    // console.log("newEndLine:", newEndLine, "deltaLength:", deltaLength);
-
-    const xLine = Math.min(mapStartLine[x], startLine);
-    const yLine = Math.max(mapEndLine[y], endLine);
-    const newYLine = yLine + deltaLength;
-
-    // console.log("xLine:", xLine, "yLine:", yLine, "newYLine:", newYLine, "totalLines:", totalLines);
-
-    // Maintain map arrays to ensure they are in sync
-    const editorTotalLines = editor.document.lineCount;
-
-    const updateMapLines = (line: number, start: number, end: number) => {
-      while (line !== undefined) {
-        let flag = false;
-        if (start < mapStartLine[line]) {
-          mapStartLine[line] = start;
-          flag = true;
-        }
-        if (end > mapEndLine[line]) {
-          mapEndLine[line] = end;
-          flag = true;
-        }
-        if (!flag) break;
-        line = mapFather[line];
-        start = Math.min(start, mapStartLine[line]);
-        end = Math.max(end, mapEndLine[line]);
-      }
-    };
-
-    for (let i = 1; i <= counter; i++) {
-      if (mapEndLine[i] >= xLine) mapEndLine[i] += deltaLength;
-      if (mapStartLine[i] > yLine) mapStartLine[i] += deltaLength;
-    }
-
-    extendMapArray(editorTotalLines);
-    if (deltaLength > 0) {
-      for (let i = totalLines; i > yLine; i--) map[i + deltaLength] = map[i];
-    } else {
-      for (let i = yLine + 1; i <= totalLines; i++) map[i + deltaLength] = map[i];
-    }
-    for (let i = xLine; i <= newYLine; i++) map[i] = undefined;
-    shrinkMapArray(editorTotalLines);
-
-    // console.log(mapStartLine);
-    // console.log(mapEndLine);
-    const raw = getTextFromLineRange(xLine, newYLine);
-    const html = await noteProcess(raw, xLine - 1, fat, false);
-    // console.log(mapStartLine);
-    // console.log(mapEndLine);
-
-    for (let i = 1; i <= counter; i++) {
-      updateMapLines(mapFather[i], mapStartLine[i], mapEndLine[i]);
     }
 
     updateMapLastNext();
-    totalLines = editorTotalLines;
 
-    // console.log("changed range:", xLine, yLine, newYLine);
-    // console.log("Changed text:\n" + raw);
-    // console.log("Now map:");
-    // for (let i = 1; i <= totalLines; i++) {
-    //   console.log(i, map[i], mapLast[i], mapNext[i]);
-    // }
-    // console.log("Now tree:");
-    // for (let i = 1; i <= counter; i++) {
-    //   console.log(i, mapStartLine[i], mapEndLine[i], mapFather[i]);
-    // }
-    // console.log("Partial update:", { x, y, fat });
-    // console.log("update html:");
-    // console.log(html);
-
-    // Send message to update the preview
     panel.webview.postMessage({
       command: "partialUpdateHtml",
-      html,
-      x,
-      y,
-      fat,
+      html: decision.raw,
+      x: decision.x,
+      y: decision.y,
+      fat: decision.fat,
     });
-
-    // console.log("/------ End Handling Change ------/");
   };
 
   // Message queue for pending text changes to throttle updates
@@ -413,6 +338,25 @@ export function activate(context: vscode.ExtensionContext) {
             null,
             context.subscriptions,
           );
+
+          // Handle messages from the webview. Currently used as a self-healing
+          // fallback: when an incremental DOM update cannot be located, the
+          // webview asks for a full refresh instead of silently stalling.
+          panel.webview.onDidReceiveMessage(
+            (message) => {
+              if (message.command === "requestFullRefresh") {
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document.languageId === "markdown" && panel) {
+                  handleDocChange(editor, editor.document);
+                }
+              } else if (message.command === "copyCodeToClipboard") {
+                const text = typeof message.text === "string" ? message.text : "";
+                if (text) void vscode.env.clipboard.writeText(text);
+              }
+            },
+            null,
+            context.subscriptions,
+          );
         }
 
         // Show the panel next to the editor
@@ -446,19 +390,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         setWorkspaceUri(workspaceUri.toString());
 
-        const prefTheme =
-          vscode.workspace.getConfiguration("notesaw").get<string>("theme") || "follow-system";
-        let theme: "light" | "dark" | undefined = undefined;
-        if (prefTheme === "follow-vscode") {
-          // Apply VSCode theme styles
-          theme =
-            vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? "dark" : "light";
-        } else if (prefTheme === "light" || prefTheme === "dark") {
-          theme = prefTheme;
-        } else {
-          theme = undefined;
-        }
-
+        const theme: PreviewTheme = resolveTheme(vscode.window.activeColorTheme.kind);
         // console.log("Starting to initialize webview with theme:", theme);
         // Initialize the webview with the HTML content (don't need text)
         const resHtml = await noteProcessInit(
@@ -476,17 +408,13 @@ export function activate(context: vscode.ExtensionContext) {
         handleDocChange(editor, editor.document);
 
         // Get user configuration
-        const config = vscode.workspace.getConfiguration("notesaw");
-        const scrollSyncMode = config.get<string>("scrollSync.mode") || "instant";
-        const scrollSyncThreshold = config.get<number>("scrollSync.intelligentThreshold") || 0.1;
-        const scrollCrossPageThreshold =
-          config.get<number>("scrollSync.scrollCrossPageThreshold") || 1;
+        const scroll = scrollSyncSettings();
 
         panel.webview.postMessage({
           command: "setScrollSyncConfig",
-          mode: scrollSyncMode,
-          threshold: scrollSyncThreshold,
-          crossPageThreshold: scrollCrossPageThreshold,
+          mode: scroll.mode,
+          threshold: scroll.threshold,
+          crossPageThreshold: scroll.crossPageThreshold,
         });
       }
     }),
@@ -503,7 +431,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
         vscode.window.showInformationMessage("Start exporting Markdown file to raw HTML...");
 
-        const html = await noteProcess(editor.document.getText(), 0, 0, true);
+        const html = await noteProcess(editor.document.getText(), 0, 0, true, {
+          codeFeatures: true,
+          codeLineNumbers: codeBlockLineNumbers(),
+        });
         const savePath = editor.document.uri.fsPath.replace(/\.md$/, ".html");
         const htmlUri = editor.document.uri.with({ path: savePath });
         const writeData = new TextEncoder().encode(String(html));
@@ -527,23 +458,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Get user configuration
-        const config = vscode.workspace.getConfiguration("notesaw");
-        const pdfOptions = config.get<any>("pdfOptions") || {};
-        const puppeteerPath = pdfOptions.puppeteerPath || "";
-        const format = pdfOptions.format || "A4";
-        const forceWhiteBackground = pdfOptions.forceWhiteBackground || false;
-        const landscape = pdfOptions.landscape || false;
-        const margin = pdfOptions.margin || {
-          top: "10mm",
-          bottom: "10mm",
-          left: "15mm",
-          right: "15mm",
-        };
-        const scale = pdfOptions.scale || 1.0;
-        const displayHeaderFooter = pdfOptions.displayHeaderFooter || false;
-        const headerTemplate = pdfOptions.headerTemplate || "<div></div>";
-        const footerTemplate = pdfOptions.footerTemplate || "<div></div>";
-
+        const pdf = pdfSettings();
         const noteCssPath = vscode.Uri.joinPath(
           context.extensionUri,
           "assets",
@@ -595,6 +510,11 @@ export function activate(context: vscode.ExtensionContext) {
                 katexCssPath,
                 folderPath,
                 featherSvgPath,
+                undefined,
+                {
+                  codeFeatures: true,
+                  codeLineNumbers: codeBlockLineNumbers(),
+                },
               );
 
               // Use Puppeteer to convert HTML to PDF
@@ -615,7 +535,7 @@ export function activate(context: vscode.ExtensionContext) {
               try {
                 browser = await puppeteer.launch({
                   headless: true,
-                  executablePath: puppeteerPath || undefined,
+                  executablePath: pdf.puppeteerPath || undefined,
                   args: [
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -637,15 +557,15 @@ export function activate(context: vscode.ExtensionContext) {
 
               await page.pdf({
                 path: pdfPath,
-                format,
-                landscape,
-                margin,
-                displayHeaderFooter,
-                headerTemplate,
-                footerTemplate,
-                scale,
-                omitBackground: !forceWhiteBackground,
-                printBackground: !forceWhiteBackground,
+                format: pdf.format as PaperFormat,
+                landscape: pdf.landscape,
+                margin: pdf.margin,
+                displayHeaderFooter: pdf.displayHeaderFooter,
+                headerTemplate: pdf.headerTemplate,
+                footerTemplate: pdf.footerTemplate,
+                scale: pdf.scale,
+                omitBackground: !pdf.forceWhiteBackground,
+                printBackground: !pdf.forceWhiteBackground,
               });
               await browser.close();
 
@@ -661,6 +581,25 @@ export function activate(context: vscode.ExtensionContext) {
           },
         );
       }
+    }),
+  );
+
+  // Apply Notesaw setting changes and VS Code color-theme switches live to an
+  // open preview (theme, scroll-sync mode/thresholds) instead of requiring the
+  // preview to be reopened.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (!e.affectsConfiguration("notesaw")) return;
+      applyLiveSettings();
+      // The code-block chrome (line numbers on/off) is baked into the rendered
+      // HTML, so a change needs a fresh full render to take effect.
+      if (e.affectsConfiguration("notesaw.codeBlock")) {
+        const editor = vscode.window.activeTextEditor;
+        if (panel && editor) handleDocChange(editor, editor.document);
+      }
+    }),
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      applyLiveSettings();
     }),
   );
 }

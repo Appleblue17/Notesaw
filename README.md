@@ -61,184 +61,27 @@ You can customize the behavior of _Notesaw Preview_ through the VSCode settings.
 
 ## Notesaw Syntax
 
-### Format and Indentation
+Please refer to [SYNTAX.md](docs/SYNTAX.md) for the complete syntax specification of _Notesaw_.
 
-_Notesaw_ follows a relatively strict formatting and indentation rule. This is to avoid ambiguity and unintentional conflicts with Markdown syntax, and to ensure consistency and readability. Here are some key points to keep in mind:
+**It is recommended to read the syntax specification before using _Notesaw_, as it will help you understand the design philosophy and how to write and structure your notes effectively.**
 
-- Use $4$ spaces or a tab character for indentation.
-- Each block should be clearly indented to indicate its hierarchy and relationship to other blocks.
-- Block and inline block syntax will only be identified by their indentation level.
-
-### Block Syntax
-
-_Notesaw_ introduces a hierarchical block syntax that allows for flexible document organization. Blocks can be nested and rearranged easily, making it simple to structure your notes. The syntax is:
-
-```plain
-'+'? '@' label (' '+ title ' '*)? '{'
-    (indented contents)
-'}'
-
-* label: [a-z]+
-* title: [^\n]+ (\n' '*)?
-```
-
-- The `title` is optional and can be omitted if not needed.
-
-- The content must be indented using $4$ spaces or a tab character, and the syntax will only be recognized if its indentation level is correct. See [Format and Indentation](#format-and-indentation).
-
-- The opening curly brace `{` can be either written on the same line as the opening block, or at the beginning of the next line (but an endline must follow then).
-
-- The closing curly brace `}` must be on the same indentation level as the opening block. Any content following the closing brace will be ignored and not rendered.
-
-#### Label Mapping
-
-_Notesaw_ provides a set of pre-defined labels with associated icons for various block types. Label names that are not explicitly defined in the table below will fall back to a default icon (chevron-right).
-
-To make it more convenient, _Notesaw_ set up a set of abbreviations for block labels. If the label name occurs in the table below, then it will be automatically substituted by the corresponding full label name, and so do the color.
-
-See [BLOCKLABEL.md](BLOCKLABEL.md) for the full list of icons and abbreviations.
-
-#### Examples
-
-```text
--> valid
-
-@example helloworld
-{
-    Greetings!
-}
-```
-
-````text
--> valid
-
-@def Markdown {
-    Markdown is a lightweight markup language for creating formatted text using a plain-text editor.
-
-    @example {
-      ```md
-      > Hello, *Markdown*!
-      ```
-    }
-}
-````
-
-```text
--> invalid (incorrect indentation, the nested definition won't be recognized)
-
-@example nested {
-  @def nested {
-   This is a nested definition.
-  }
-}
-```
-
-```text
--> invalid (redundant characters after curly braces)
-
-@example greetings
-{ abc
-    helloworld
-} def
-```
-
-#### Recommended Usage
-
-Block is a good choice for organizing related content and providing clear structure, but may appear bulky if it contains a lot of text. It is recommended to use blocks to **highlight key concepts**, then explain them in detail outside the block.
-
-You can also wrap related content in a block, such as theorems, proofs, examples, etc., to improve readability and organization.
-
-### Inline Block Syntax
-
-Inline block is the inline version of block, allowing you to add formatting and structure to your text without breaking the flow of your writing. The syntax is:
-
-```plain
-'+'? '@' label [?!*]? ' ' content '\n'
-
-* label: [a-z]+
-* content: [^\n]*
-```
-
-- The inline block must be a single line and cannot contain newlines.
-
-- The syntax will only be recognized if its indentation level is correct. See [Format and Indentation](#format-and-indentation).
-
-- Inline blocks do not support titles for now.
-
-#### Examples
-
-```text
--> valid
-
-@note **Be careful** with the indentation.
-```
-
-#### Recommended Usage
-
-Inline blocks are useful for adding emphasis or additional context to specific parts of your text without breaking the flow. It's a good practice to use inline blocks as "additions", a way to highlight important notes, tips, or annotations.
-
-Short definitions or explanations can also be effectively conveyed using inline blocks, more like a light-weighted block.
-
-### Box Syntax
-
-Box is a lightweight, flexible, inline container that can be used to highlight or stress important information or keywords. The syntax is:
-
-```plain
-'@[' [^@]* ']'
-```
-
-- The content can include text, inline code, and even math expressions, but multi-line content or images are not supported.
-
-- Box syntax **cannot** be nested within other box syntax, but it can be used in other syntactic contexts.
-
-#### Examples
-
-```text
--> valid
-
-@[Markdown]: Markdown is a lightweight markup language for creating formatted text using a plain-text editor.
-
-@[$a^2+b^2=c^2$] is a well-known equation in mathematics.
-```
-
-```text
--> valid
-
-@[Markdown]
-
-Markdown is a lightweight markup language for creating formatted text using a plain-text editor.
-```
-
-#### Recommended Usage
-
-Box syntax is useful for highlighting important information or keywords within a larger context. There are many potential use cases, including:
-
-- Emphasizing key terms or concepts
-- Used as a declaration of definitions or explanations
-- A mini heading to separate content without breaking the flow
-
-The example above demonstrates part of the case for using box syntax effectively.
+> **A note on GFM footnotes.** A footnote reference (`text[^1]`) and its definition (`[^1]: …`) are resolved together across the whole document by Markdown. Because Notesaw previews edit incrementally — only re-rendering the changed range instead of the whole note — a reference and its definition are only kept reliably linked when they fall within the same re-rendered region. Keep them close together (or in adjacent content) for now; distant footnotes may drop their link when edited in a different region. Full footnote tracking across ranges is planned for a future rewrite.
 
 ## How does it work?
 
 _Notesaw_ is built on top of the [unified](https://github.com/unifiedjs/unified) framework/ecosystem, which provides a powerful and flexible way to process and transform Markdown content.
 
-Basically, _Notesaw_ parser linearly sweeps through the document, recognizing and processing extended syntax elements as it goes, which makes it super efficient. The rest of the document is partitioned into pieces and each piece will be processed by [remark](https://github.com/remarkjs) to get the MDAST. _Notesaw_ then merges the MDASTs to the final MDAST, which is then processed into HAST and finally HTML by [rehype](https://github.com/rehypejs/rehype).
+**Parsing.** The _Notesaw_ parser (`src/parser.ts`) linearly sweeps through the document, recognizing and processing extended syntax elements (block, inline block, box) as it goes, which makes it super efficient. The rest of the document is partitioned into pieces, and each piece is processed by [remark](https://github.com/remarkjs) to obtain an MDAST fragment. _Notesaw_ then merges all the fragments into the final MDAST, which is processed into HAST and finally HTML by [rehype](https://github.com/rehypejs/rehype). Indentation (4 spaces or a tab) is what determines the hierarchy, so extended syntax is only recognized at the correct indentation level.
 
-During the process, _Notesaw_ maintains the position information of each element which are provided by [remark](https://github.com/remarkjs). These positions are crucial for scroll synchronization between the editor and the preview, as well as partial rendering.
+**Location tracking.** During the transformation stage (`src/transformer.ts`), every rendered element is assigned a stable `id`, and _Notesaw_ maintains a set of line-to-block maps (`map`, `mapStartLine`, `mapEndLine`, `mapDepth`, `mapFather`) that record which block each editor line belongs to. Combined with the position information provided by [remark](https://github.com/remarkjs), these maps are crucial for scroll synchronization between the editor and the preview, as well as partial rendering.
 
-## Known Issues
+**Rendering.** The generated HTML fragment is delivered to the webview (`assets/script/webview-script.js`), which either performs a full diff update via [morphdom](https://github.com/patrick-steele-idem/morphdom), or — for a text edit — re-processes only the minimal affected range and patches the corresponding DOM subtree in place. HTML/PDF export reuses the same core pipeline (`src/note-convert.ts`), with PDF generation handled by [Puppeteer](https://pptr.dev/).
 
-🧪 **Partial Rendering** is currently an experimental feature and may not work properly. If the preview breaks, please click the preview button again to refresh it.
-
-Known Issues:
-
-- Issue 1: Block may break if delete some content inside and outside the block at the same time.
-- Issue 2: Box can not be in the title of a block.
+For more details, see [architecture.md](docs/architecture.md).
 
 ## Change Log
 
-For full change log, see [CHANGELOG.md](CHANGELOG.md).
+For full change log, see [CHANGELOG.md](docs/CHANGELOG.md).
 
 ### Progress
 
@@ -246,8 +89,8 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 
 - [x] Add support for basic Markdown syntax
 - [x] Add support for KaTeX math syntax
-- [ ] Add support for code blocks highlighting
-- [ ] Add support for code blocks with line numbers
+- [x] Add support for code blocks highlighting
+- [x] Add support for code blocks with line numbers
 - [x] Basic block syntax support
 - [ ] Block link support
 - [x] Inline Block Syntax
@@ -274,14 +117,6 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 - [ ] Support keypoint summary
 - [ ] Syntax highlighting
 - [ ] Editor formatting
-- [ ] Customizeable settings
-
-<!-- #### Settings
-
-- [Enable]/Disable KaTeX
-  - [Enable]/Disable inline KaTeX display mode
-- [Enable]/Disable GFM
-- [Instant]/Smooth/Disable scroll synchronization -->
 
 #### Milestones
 
@@ -291,7 +126,9 @@ For full change log, see [CHANGELOG.md](CHANGELOG.md).
 - [2025-04-18] Complete the first version of the core features.
 - [2025-05-03] Complete main features of Notesaw VS Code preview extension.
 - [2025-08-27] Redesign the style and simplify the syntax.
-- [2025-09-01] Complete the first version of the Notesaw preview.
+- [2025-09-01] Complete Notesaw preview v0.1.0 and release it on the VS Code Marketplace.
+- [2025-10-26] Release v0.2.0.
+- [2026-02-17] Release v0.2.2.
 
 ## References
 

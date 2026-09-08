@@ -1,5 +1,12 @@
 :root {
   --tag-height: 18px;
+  /* Accent color for block icons/labels/borders is built from the hue the
+     transformer stores per block (`--block-hue`). Lightness stays theme-aware:
+     70% reads well on the dark palette, but is too washed-out on white, so it
+     is dropped to 45% in light mode for adequate contrast. */
+  --block-sat: 80%;
+  --block-lightness: 70%;
+  --block-accent: hsl(var(--block-hue, 0) var(--block-sat) var(--block-lightness));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -11,12 +18,19 @@
   }
 }
 
+/* An explicit data-theme (export / follow-vscode / pick-a-theme) darkens accents
+   in light mode regardless of the OS color scheme. Dark keeps the vivid 70%
+   default that already reads well on the dark palette. */
+body[data-theme="light"] {
+  --block-lightness: 45%;
+}
+
+/* follow-system / no explicit theme: use the OS color scheme via media query. */
 @media (prefers-color-scheme: light) {
-  .markdown-body,
-  [data-theme="light"] {
-    /* light */
+  .markdown-body {
     color-scheme: light;
     --box-border-color: #181818;
+    --block-lightness: 45%;
   }
 }
 
@@ -29,7 +43,8 @@
 /* block title*/
 .block-container,
 .inline-block-container {
-  border-left: 2px solid transparent;
+  --block-accent: hsl(var(--block-hue, 0) var(--block-sat) var(--block-lightness));
+  border-left: 2px solid var(--block-accent);
   padding: 0.2rem 0 0.2rem 0.8rem;
   margin-bottom: 0.8rem;
 }
@@ -43,6 +58,7 @@
 }
 
 .block-container > .block-title > .block-label {
+  color: var(--block-accent);
   margin-right: 0.8rem;
   font-size: 1rem;
 }
@@ -64,7 +80,13 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  stroke: var(--block-accent);
   stroke-width: 2;
+  fill: transparent;
+  /* Feather draws small accents such as the "?"-tail dot as a zero-length
+     segment; only round caps turn it into a visible dot. */
+  stroke-linecap: round;
+  stroke-linejoin: round;
   margin-right: 0.4rem;
   margin-top: 0.2rem;
 }
@@ -76,6 +98,7 @@
 
 /* inline block */
 .inline-block-container > .block-label {
+  color: var(--block-accent);
   margin-right: 0.6rem;
 }
 
@@ -116,3 +139,82 @@
   border-right: 1.5px solid var(--box-border-color);
   border-bottom: 1.5px solid var(--box-border-color);
 }
+
+/* ==========================================================================
+   Fenced code block chrome (line numbers, language label, copy button).
+   ========================================================================== */
+
+.markdown-body pre.sn-block {
+  position: relative;
+  padding-top: 1.7em; /* room for the toolbar overlay */
+}
+
+.markdown-body .sn-lang,
+.markdown-body .sn-copy {
+  position: absolute;
+  top: 0.25em;
+  font-family: var(--fontStack-monospace, ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace);
+  font-size: 0.75rem;
+  color: var(--fgColor-muted, #57606a);
+  border: 0;
+  background: none;
+  line-height: 1;
+}
+.markdown-body .sn-lang {
+  left: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.markdown-body .sn-copy {
+  right: 0.8em;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+  padding: 0.25em 0.5em;
+  border-radius: 6px;
+}
+.markdown-body .sn-copy:hover {
+  opacity: 1;
+  background: var(--bgColor-muted, #f6f8fa);
+}
+.markdown-body .sn-copy:focus-visible {
+  outline: 1px solid var(--fgColor-accent, #0969da);
+  outline-offset: 1px;
+}
+.markdown-body .sn-copy:active {
+  opacity: 0.5;
+}
+
+/* Per-line number rows: each source line is a flex row with a number column
+   followed by the (un-edited) code tokens. Numbers sit flush left in a narrow
+   gutter; `<pre>` already supplies its own side/bottom padding. */
+.markdown-body pre code.sn-line-num {
+  display: block;
+}
+.markdown-body code.sn-line-num .sn-line {
+  display: flex;
+  align-items: baseline;
+}
+.markdown-body .sn-line .sn-no {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: left;
+  padding-right: 0.9em;
+  color: var(--fgColor-muted, #57606a);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.markdown-body .sn-line .sn-code-part {
+  flex: 0 1 auto;
+  white-space: pre;
+}
+
+/* Hide the interactive copy button when exporting to PDF / printing. */
+@media print {
+  .markdown-body .sn-copy {
+    display: none;
+  }
+}
+

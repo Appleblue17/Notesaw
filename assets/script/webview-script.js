@@ -2,6 +2,32 @@ let scrollSyncMode = "instant"; // default mode
 let scrollSyncThreshold = 0.1; // default threshold (10% of viewport height)
 let crossPageThreshold = 1; // default cross-page threshold (1 pages)
 
+// Bridge back to the extension host. Falls back to a no-op outside a webview
+// (e.g. when this script is unit-tested in plain DOM).
+let vscode = null;
+try {
+  vscode = acquireVsCodeApi();
+} catch (e) {
+  vscode = null;
+}
+
+let lastRefreshRequest = 0;
+
+/**
+ * Asks the extension to fully re-render the preview. Used as a self-healing
+ * fallback when a partial (incremental) DOM update cannot locate its target
+ * elements, instead of silently stalling the preview.
+ */
+function requestFullRefresh(reason) {
+  if (!vscode) return;
+  // Throttle to at most one request per 200ms to avoid a message storm.
+  const now = Date.now();
+  if (now - lastRefreshRequest < 200) return;
+  lastRefreshRequest = now;
+  vscode.postMessage({ command: "requestFullRefresh", reason });
+  console.warn("[notesaw] Requesting full preview refresh:", reason);
+}
+
 // morphdom is available globally via UMD
 function updateHtml(newHtml) {
   morphdom(document.getElementsByClassName("markdown-body")[0], newHtml);
@@ -9,30 +35,44 @@ function updateHtml(newHtml) {
 
 function partialUpdateHtml(newHtml, x, y, fat) {
   const markdownBody = document.getElementsByClassName("markdown-body")[0];
-  if (!markdownBody) return;
+  if (!markdownBody) {
+    requestFullRefresh("markdown-body missing");
+    return;
+  }
 
-  // 解析 newHtml 为 DOM 节点集合
+  // Parse newHtml into a list of sibling nodes. The fragment is wrapped in a
+  // single <div class="markdown-body"> root, so its children are the siblings
+  // to insert. Fall back to the whole fragment when the shape is unexpected.
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = newHtml;
-  const newChildren = Array.from(tempDiv.childNodes[0].childNodes);
-  // console.log("newChildren:", newChildren);
+  let newChildren;
+  if (
+    tempDiv.childNodes.length === 1 &&
+    tempDiv.firstChild.nodeType === Node.ELEMENT_NODE
+  ) {
+    newChildren = Array.from(tempDiv.firstChild.childNodes);
+  } else {
+    newChildren = Array.from(tempDiv.childNodes);
+  }
 
   // Find the parent element (fat) in the current DOM
   const parent = document.getElementById(fat);
-  if (!parent) return;
+  if (!parent) {
+    requestFullRefresh("parent id not found: " + fat);
+    return;
+  }
 
   // Both x and y are children of fat, and x comes before y
   const children = Array.from(parent.childNodes);
   const startIdx = children.findIndex((node) => node.id === String(x));
   const endIdx = children.findIndex((node) => node.id === String(y));
 
-  // console.log("Found indices:", startIdx, endIdx);
-
-  if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return;
-  // console.log("Replacing nodes between indices:", startIdx, endIdx);
+  if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
+    requestFullRefresh("target range not found: x=" + x + " y=" + y + " fat=" + fat);
+    return;
+  }
 
   const refNode = children[endIdx].nextSibling;
-  // console.log("refNode:", refNode);
 
   // Delete all nodes from startIdx to endIdx (inclusive)
   for (let i = startIdx; i <= endIdx; i++) {
@@ -165,5 +205,50 @@ window.addEventListener("message", (event) => {
       scrollSyncThreshold = event.data.threshold || scrollSyncThreshold;
       crossPageThreshold = event.data.crossPageThreshold || crossPageThreshold;
       break;
+    case "updateTheme":
+      // Re-apply the resolved light/dark theme without a full re-render. An
+      // undefined value means "follow system", so the attribute is removed and
+      // the CSS `prefers-color-scheme` media query takes over.
+      if (event.data.theme) {
+        document.body.setAttribute("data-theme", event.data.theme);
+      } else {
+        document.body.removeAttribute("data-theme");
+      }
+      break;
   }
 });
+
+/**
+ * Language label / "copy" chrome for fenced code blocks.
+ *
+ * The copy button in the webview routes the (un-numbered) raw code text to the
+ * VS Code clipboard through the extension host, since the webview sandbox cannot
+ * always use `navigator.clipboard` directly. Line numbers live in CSS pseudo
+ * content (`::before { content: attr(data-line-number) }`), so reading
+ * `textContent` of the `<code>` yields exactly the source, without numbering.
+ */
+document.addEventListener("click", (event) => {
+  const button = event.target.closest && event.target.closest(".sn-copy");
+  if (!button) return;
+  const block = button.closest && button.closest("pre.sn-block");
+  if (!block) return;
+  event.preventDefault();
+  const code = block.querySelector("code.sn-code");
+  if (!code) return;
+  // Line-numbered rows keep numbers in a separate `.sn-no` cell; copy only the
+  // code cells so the clipboard text is exactly the source.
+  const parts = Array.prototype.map.call(
+    code.querySelectorAll(".sn-line .sn-code-part"),
+    (el) => el.textContent || "",
+  );
+  const text = parts.length > 0 ? parts.join("\n") : code.textContent || "";
+  if (!vscode) return;
+  vscode.postMessage({ command: "copyCodeToClipboard", text });
+  // Brief visual confirmation that the click landed.
+  const original = button.textContent;
+  button.textContent = "Copied";
+  window.setTimeout(() => {
+    button.textContent = original;
+  }, 1200);
+});
+

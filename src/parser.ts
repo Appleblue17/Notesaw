@@ -5,6 +5,7 @@ import remarkMath from "remark-math";
 
 import type { NoteNode } from "./index.d.ts";
 import { CONTINUE, visit } from "unist-util-visit";
+import { visitParents } from "unist-util-visit-parents";
 import prettyPrint from "./utils/prettyprint.ts";
 
 const abbrMap: Record<string, string> = {
@@ -58,7 +59,12 @@ const lines: number[] = [],
  * @param {number} trailSpaces - Number of leading spaces to trim from each line
  * @returns {NoteNode|null} - The parsed AST with type set to "markdown", or null if empty
  */
-function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): NoteNode | null {
+function parseNativeMarkdown(
+  str: string,
+  trailSpaces: number,
+  offset: number,
+  expandBoxes = true
+): NoteNode | null {
   if (!str || !str.trim()) return null; // Return null for empty or whitespace-only strings
   while (str.length && (str[0] === "\n" || str[0] === " ")) ((str = str.slice(1)), offset++);
 
@@ -70,23 +76,63 @@ function parseNativeMarkdown(str: string, trailSpaces: number, offset: number): 
   // trim trailing empty lines
   while (lines.length && lines[lines.length - 1] === "") lines.pop();
 
+  /**
+   * Replaces boxes on a single line. An outer box `@[...]` whose body contains
+   * another `@[` still expands so the body is taken verbatim (inner `@[` stays
+   * literal text inside the box highlight); ordinary leaf boxes behave exactly as
+   * before. Returns the rebuilt line plus the absolute char offsets (within this
+   * trimmed source line) of every replaced box, for the caller's offset book-keeping.
+   */
+  const replaceBoxes = (line: string, base: number): { out: string; starts: number[] } => {
+    if (!expandBoxes) return { out: line, starts: [] };
+    const starts: number[] = [];
+    const chunks: string[] = [];
+    let i = 0;
+    let last = 0;
+    while (i < line.length) {
+      if (line[i] !== "@" || line[i + 1] !== "[") {
+        i++;
+        continue;
+      }
+      // depth: nested `@[` inside this box is ignored (kept as text), so find the
+      // `]` that closes THIS outer box (any nested `@[` will close on its own `]`).
+      let depth = 0;
+      let j = i + 2;
+      let close = -1;
+      for (; j < line.length; j++) {
+        if (line[j] === "@" && line[j + 1] === "[") depth++;
+        else if (line[j] === "]") {
+          if (depth > 0) depth--;
+          else {
+            close = j;
+            break;
+          }
+        }
+      }
+      if (close === -1) break; // no closing brace — this `@[` is plain text
+      chunks.push(line.slice(last, i), `<box data="${line.slice(i + 2, close)}"/>`);
+      // +1 mirrors the original boxRegex accounting (`localOffset + match.index + 1`).
+      starts.push(base + i + 1);
+      i = close + 1;
+      last = i;
+    }
+    chunks.push(line.slice(last));
+    return { out: chunks.join(""), starts };
+  };
+
   let localOffset = 0;
+  let match: RegExpExecArray | null = null;
   for (let i = 0; i < lines.length; i++) {
     let trimNum = 0;
     while (trimNum < trailSpaces && trimNum < lines[i].length && lines[i][trimNum] === " ")
       trimNum++;
     lines[i] = lines[i].slice(trimNum);
 
-    let match;
-    const boxRegex = /\@\[([^\@]*)\]/;
-    while ((match = boxRegex.exec(lines[i])) !== null) {
-      const [fullMatch, content] = match;
-      lines[i] = lines[i].replace(fullMatch, `<box data="${content}"/>`);
-      const matchOffset = localOffset + match.index + 1;
-      while (boxNums.length <= matchOffset) boxNums.push(0);
-      boxNums[matchOffset]++;
-
-      // console.log(localOffset, match.index, matchOffset);
+    const { out, starts } = replaceBoxes(lines[i], localOffset);
+    lines[i] = out;
+    for (const s of starts) {
+      while (boxNums.length <= s) boxNums.push(0);
+      boxNums[s]++;
     }
 
     trimNums.push(trimNums[trimNums.length - 1] + trimNum);
@@ -309,7 +355,7 @@ function parseNote(text: string): NoteNode {
       return parseBlockName();
     }
     function parseBlockName() {
-      if (input[index] !== "{" && input[index] !== " ") return nok();
+      if (input[index] !== "{" && input[index] !== " " && input[index] !== "\n") return nok();
       const start = index;
       let crossRow = false;
       while (index < input.length && input[index] !== "{") {
@@ -460,6 +506,27 @@ function parseNote(text: string): NoteNode {
       },
     ];
 
+  // Closes the block at the top of the stack at the given source offset `index`
+  // (the position just after its closing `}`, or `length` at EOF). The remaining
+  // text from the block's recorded `current` up to `index` is parsed as its content.
+  const closeTopBlock = (index: number) => {
+    if (blockStack.length <= 1) return; // never pop the root
+    const { node: selfNode, current: last } = blockStack.pop()!;
+    const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
+    if (selfNode.type === "block") {
+      if (ast) selfNode.children.push(ast);
+      indentLevel--;
+    }
+    // `lines`/`columns` hold one entry per input offset (0..len-1). A manual close at
+    // EOF passes `index === length`, so `index+1` reads past the array and yields an
+    // out-of-range `getPosition` (line/column undefined). Clamp to the last valid
+    // offset so `.end` is a real position and rehype keeps the node addressable.
+    const hi = lines.length - 1;
+    const endIndex = index >= hi ? hi : index + 1;
+    selfNode.position!.end = getPosition(Math.max(0, endIndex));
+    blockStack[blockStack.length - 1].current = endIndex + 1;
+  };
+
   for (let index = 0; index < length; ) {
     const char = input[index];
 
@@ -500,29 +567,35 @@ function parseNote(text: string): NoteNode {
       index = endIndex;
       blockStack[blockStack.length - 1].current = index;
     } else {
-      if (char === "}" && columns[index] === (indentLevel - 1) * 4 + 1) {
-        const { node: selfNode, current: last } = blockStack.pop()!;
-
-        if (selfNode) {
-          const ast = parseNativeMarkdown(input.slice(last, index), indentLevel * 4, last);
-          if (selfNode.type === "block") {
-            if (ast) selfNode.children.push(ast);
-            indentLevel--;
-          }
-
-          selfNode.position!.end = getPosition(index + 1);
-
-          // skip to the end of this line
-          while (index < length && input[index] !== "\n") index++;
-          blockStack[blockStack.length - 1].current = index + 1;
+      // Closing curly brace: closes the block at the indentation level it appears
+      // at, AND implicitly closes any deeper, still-open blocks inside it. A deeper
+      // `}` never matches, but a shallower one should tear everything down to it.
+      if (char === "}" && columns[index] <= (indentLevel - 1) * 4 + 1) {
+        // target level this `}` closes (1-based block level); count from stack top.
+        const targetStackLen = Math.max(1, (columns[index] - 1) / 4 + 1);
+        // Close any blocks deeper than the level this `}` sits at.
+        while (blockStack.length - 1 > targetStackLen) {
+          closeTopBlock(index);
         }
+        // And close the block at this `}`'s level, if there is one.
+        if (blockStack.length - 1 >= targetStackLen && targetStackLen >= 1) {
+          closeTopBlock(index);
+        }
+        // Skip past this line (the closing brace comment may follow).
+        while (index < length && input[index] !== "\n") index++;
+        blockStack[blockStack.length - 1].current = index + 1;
       }
       index++;
     }
   }
 
+  // EOF: implicitly close every block still left open (a "level-0" closing).
+  while (blockStack.length > 1) {
+    closeTopBlock(length);
+  }
+
   const { node, current: last } = blockStack[blockStack.length - 1];
-  const ast = parseNativeMarkdown(input.slice(last, length), indentLevel * 4, last);
+  const ast = parseNativeMarkdown(input.slice(last, length), 0, last);
   if (ast) node.children.push(ast);
   blockStack[blockStack.length - 1].node.position!.end = getPosition(length);
 
@@ -548,24 +621,48 @@ export function noteBoxParsePlugin() {
     });
 
     /* Handle box syntax */
-    visit(tree, "html", (node: any) => {
-      // value is like <box data="{content}" />
-      const content = node.value.match(/^<box data="([^"]+)"\/>$/)?.[1];
-      if (!content) return;
+    visitParents(tree, "html", (node: any, parents: any[]) => {
+      const m = (node.value as string).trim().match(/^<box data="([^"]*)"\/>$/);
+      if (!m) return;
+      const content = m[1];
 
-      const ast = parseNativeMarkdown(content, 0, node.position.start.offset!);
-
-      if (ast && ast.children.length === 1 && ast.children[0].type === "paragraph") {
-        Object.assign(node, ast.children[0]); // copy properties from AST instead of replacing
-        node.data = {
-          ...node.data,
-          hProperties: { class: "box" },
-        };
-      } else {
-        // If the content is not a single paragraph, directly put raw content
+      // Reparse the box body. `expandBoxes=false` keeps any nested `@[...]` inside
+      // the body as literal text (boxes are not nested in Notesaw).
+      const ast = parseNativeMarkdown(content, 0, node.position.start.offset!, false);
+      const para = ast && ast.children.find((c: any) => c && c.type === "paragraph");
+      if (!para) {
+        // Empty / non-paragraph body: keep plain text.
         node.type = "text";
-        node.value = content;
+        node.value = content || "";
+        return;
       }
+
+      // Build the parsed *content* as an inline `.box` element: reuse the paragraph
+      // container shape but force it to render as a `span.box` (works through
+      // mdast→hast because `data.hName`/`hProperties` are honoured).
+      const boxSpan = {
+        ...para,
+        position: { ...node.position },
+        data: { hName: "span", hProperties: { class: "box" } },
+        children: (para.children || []).map((c: any) => c),
+      };
+
+      const isInsideParagraph = parents.some((p: any) => p?.type === "paragraph");
+      if (isInsideParagraph) {
+        // Inline box used inside running prose: keep it as an inline `.box` span.
+        for (const k of Object.keys(node)) delete node[k];
+        Object.assign(node, boxSpan);
+        return;
+      }
+
+      // A standalone box (its own line / block root): wrap it in a real paragraph,
+      // so consecutive standalone boxes stack on separate lines instead of touching.
+      for (const k of Object.keys(node)) delete node[k];
+      Object.assign(node, {
+        type: "paragraph",
+        position: { ...node.position },
+        children: [boxSpan],
+      });
     });
   };
 }
