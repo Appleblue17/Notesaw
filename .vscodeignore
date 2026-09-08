@@ -1,10 +1,41 @@
-.env
+# Build / dev / testing artifacts that must not ship in the VSIX.
 .vscode
 .github
-note_test/
+.vscodeignore
 src/
+test/
 scripts/
+docs/
+agent-instructions/
+note_test/
+node_test/
 
+# Root config and scratch docs not needed at runtime.
 tsconfig.json
 eslint.config.mjs
+prettier.config.*
+.prettierrc*
+vitest.config.*
+*.tsbuildinfo
+package-lock.json
+pnpm-lock.yaml
 output.html
+
+# Dotfiles / local caches that may appear after a build in restricted sandboxes.
+.env*
+.git*
+**/node_modules/.cache
+.npmtmp_cache/
+npmtmp/
+npm-debug.log*
+_cacache/
+_logs/
+_prebuilds/
+_update-notifier-last-checked
+*.log
+
+# Compiled source maps (keep the .js, drop the .map).
+out/**/*.map
+
+# Extension package is git-ignored anyway; keep it out of any nested package runs.
+*.vsix
