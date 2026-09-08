@@ -61,165 +61,11 @@ _Notesaw Preview_ 使用 [Puppeteer](https://pptr.dev/) 生成 PDF 文件，这�
 
 ## Notesaw 语法
 
-### 格式与缩进
+请参阅 [SYNTAX.md](docs/SYNTAX.md) 了解 _Notesaw_ 的完整语法规范。
 
-_Notesaw_ 遵循相对严格的格式与缩进规则。这是为了避免歧义以及与 Markdown 语法的意外冲突，并确保一致性与可读性。以下是一些关键点：
+**建议在使用 _Notesaw_ 之前阅读语法规范，这将帮助你理解设计理念以及如何有效地书写和组织笔记。**
 
-- 使用 $4$ 个空格或一个 Tab 字符进行缩进。
-- 每个 block 都应清晰缩进，以表明其层级及与其他 block 的关系。
-- block 与 inline block 语法**只会根据其缩进层级被识别**。
-
-### Block 语法
-
-_Notesaw_ 引入了一种层级 block 语法，便于灵活组织文档。block 可以轻松嵌套与重排，让笔记结构变得简单。语法如下：
-
-```plain
-'+'? '@' label (' '+ title ' '*)? '{'
-    (indented contents)
-'}'
-
-* label: [a-z]+
-* title: [^\n]+ (\n' '*)?
-```
-
-- `title` 是可选的，如不需要可以省略。
-
-- 内容必须使用 $4$ 个空格或一个 Tab 字符缩进，且只有在缩进层级正确时语法才会被识别。参见 [格式与缩进](#格式与缩进)。
-
-- 左花括号 `{` 可以写在 block 开始符的同一行，也可以写在下一行的行首（但此时其后必须跟上换行）。
-
-- 右花括号 `}` 必须与开始的 block 处于同一缩进层级。右花括号之后的内容会被忽略且不渲染。
-
-#### 标签映射
-
-_Notesaw_ 提供了一套预定义的标签及其对应的图标，用于不同类型的 block。下表中未显式定义的标签名将回退到默认图标（chevron-right）。
-
-为方便起见，_Notesaw_ 还设置了一套 block 标签缩写。如果标签名出现在缩写表中，它将被自动替换为对应的完整标签名，颜色也会随之变化。
-
-完整的图标与缩写列表见 [BLOCKLABEL.md](docs/BLOCKLABEL.md)。
-
-#### 示例
-
-```text
--> 合法
-
-@example helloworld
-{
-    Greetings!
-}
-```
-
-````text
--> 合法
-
-@def Markdown {
-    Markdown 是一种使用纯文本编辑器创建格式化文本的轻量级标记语言。
-
-    @example {
-      ```md
-      > Hello, *Markdown*!
-      ```
-    }
-}
-````
-
-```text
--> 非法（缩进不正确，嵌套定义不会被识别）
-
-@example nested {
-  @def nested {
-   This is a nested definition.
-  }
-}
-```
-
-```text
--> 非法（花括号后有冗余字符）
-
-@example greetings
-{ abc
-    helloworld
-} def
-```
-
-#### 推荐用法
-
-block 是组织相关内容并呈现清晰结构的好选择，但如果包含大量文本则可能显得臃肿。建议使用 block 来**突出核心概念**，再在 block 外对它们做详细说明。
-
-你还可以将相关的内容包裹进 block 中，例如定理、证明、示例等，以提升可读性与组织性。
-
-### Inline Block 语法
-
-inline block 是 block 的"行内"版本，让你在不中断文字书写节奏的前提下为文本添加格式与结构。语法如下：
-
-```plain
-'+'? '@' label [?!*]? ' ' content '\n'
-
-* label: [a-z]+
-* content: [^\n]*
-```
-
-- inline block 必须是单行，不能包含换行。
-
-- 只有在缩进层级正确时语法才会被识别。参见 [格式与缩进](#格式与缩进)。
-
-- 目前 inline block 不支持标题。
-
-#### 示例
-
-```text
--> 合法
-
-@note **Be careful** with the indentation.
-```
-
-#### 推荐用法
-
-inline block 很适合为文本的特定部分添加强调或补充上下文，而不会破坏书写的整体流程。它是一种很好的实践，把 inline block 用作"补充说明"——一种强调重要提示、贴士或注释的方式。
-
-简短的定义或解释也可以用 inline block 来有效传达，更像是一种轻量级的 block。
-
-### Box 语法
-
-box 是一个轻量、灵活的行内容器，可用于突出或强调重要信息或关键词。语法如下：
-
-```plain
-'@[' [^@]* ']'
-```
-
-- 内容可以包含文本、行内代码甚至数学表达式，但不支持多行内容或图片。
-
-- box 语法**不能在另一个 box 语法中嵌套**，但可以用于其他语法上下文中。
-
-#### 示例
-
-```text
--> 合法
-
-@[Markdown]: Markdown 是一种使用纯文本编辑器创建格式化文本的轻量级标记语言。
-
-@[$a^2+b^2=c^2$] 是数学中一个著名的等式。
-```
-
-```text
--> 合法
-
-@[Markdown]
-
-Markdown 是一种使用纯文本编辑器创建格式化文本的轻量级标记语言。
-```
-
-#### 推荐用法
-
-box 语法适合在较大的上下文中突出重要信息或关键词。它有很广泛的潜在用途，包括：
-
-- 强调关键术语或概念
-- 用于定义或解释的声明
-- 在不打断书写流程的前提下作为迷你标题来分隔内容
-
-上面的示例演示了有效使用 box 语法的一部分场景。
-
-## 它是如何工作的？
+## 实现细节
 
 _Notesaw_ 构建在 [unified](https://github.com/unifiedjs/unified) 框架/生态之上，它为处理和转换 Markdown 内容提供了强大而灵活的方式。
 
@@ -231,15 +77,6 @@ _Notesaw_ 构建在 [unified](https://github.com/unifiedjs/unified) 框架/生�
 
 更多细节参见 [architecture.md](docs/architecture.md)。
 
-## 已知问题
-
-🧪 **部分渲染**目前是实验性功能，可能工作不正常。如果预览异常，请再次点击预览按钮刷新它。
-
-已知问题：
-
-- 问题 1：如果同时在 block 内与 block 外删除一些内容，block 可能会被破坏。
-- 问题 2：box 不能出现在 block 的标题中。
-
 ## 更新日志
 
 完整的更新日志见 [CHANGELOG.md](docs/CHANGELOG.md)。
@@ -250,8 +87,8 @@ _Notesaw_ 构建在 [unified](https://github.com/unifiedjs/unified) 框架/生�
 
 - [x] 支持基础 Markdown 语法
 - [x] 支持 KaTeX 数学公式语法
-- [ ] 支持代码块高亮
-- [ ] 支持带行号的代码块
+- [x] 支持代码块高亮
+- [x] 支持带行号的代码块
 - [x] 基础 block 语法支持
 - [ ] block 链接支持
 - [x] inline block 语法
@@ -278,14 +115,6 @@ _Notesaw_ 构建在 [unified](https://github.com/unifiedjs/unified) 框架/生�
 - [ ] 支持要点摘要
 - [ ] 语法高亮
 - [ ] 编辑器格式化
-- [ ] 可自定义的设置
-
-<!-- #### 设置
-
-- [启用]/禁用 KaTeX
-  - [启用]/禁用行内 KaTeX 显示模式
-- [启用]/禁用 GFM
-- [即时]/平滑/禁用滚动同步 -->
 
 #### 里程碑
 
@@ -295,7 +124,9 @@ _Notesaw_ 构建在 [unified](https://github.com/unifiedjs/unified) 框架/生�
 - [2025-04-18] 完成核心功能第一版。
 - [2025-05-03] 完成 Notesaw VS Code 预览扩展的主要功能。
 - [2025-08-27] 重新设计样式并简化语法。
-- [2025-09-01] 完成 Notesaw 预览第一版。
+- [2025-09-01] 完成 Notesaw 预览第一版并发布到 VS Code Marketplace。
+- [2025-10-26] 发布 v0.2.0。
+- [2026-02-17] 发布 v0.2.2。
 
 ## 参考资源
 

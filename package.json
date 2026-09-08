@@ -40,7 +40,7 @@
         "command": "notesaw.showPreview",
         "title": "Start Notesaw preview to the Side",
         "category": "Notesaw",
-        "icon": "$(preview)"
+        "icon": "$(output)"
       },
       {
         "command": "notesaw.export_to_html",

@@ -23,6 +23,7 @@
 ### Documentation
 
 - Move `CHANGELOG.md` and `BLOCKLABEL.md` into the `docs/` directory.
+- Move `SYNTAX.md` into the `docs/` directory and link it from the README.
 
 ## [0.2.2] - 2026-02-17
 
