@@ -65,6 +65,8 @@ Please refer to [SYNTAX.md](docs/SYNTAX.md) for the complete syntax specificatio
 
 **It is recommended to read the syntax specification before using _Notesaw_, as it will help you understand the design philosophy and how to write and structure your notes effectively.**
 
+> **A note on GFM footnotes.** A footnote reference (`text[^1]`) and its definition (`[^1]: …`) are resolved together across the whole document by Markdown. Because Notesaw previews edit incrementally — only re-rendering the changed range instead of the whole note — a reference and its definition are only kept reliably linked when they fall within the same re-rendered region. Keep them close together (or in adjacent content) for now; distant footnotes may drop their link when edited in a different region. Full footnote tracking across ranges is planned for a future rewrite.
+
 ## How does it work?
 
 _Notesaw_ is built on top of the [unified](https://github.com/unifiedjs/unified) framework/ecosystem, which provides a powerful and flexible way to process and transform Markdown content.
