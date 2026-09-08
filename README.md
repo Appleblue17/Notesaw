@@ -16,7 +16,6 @@ The block style is inspired by [Github Alert](https://github.com/orgs/community/
 - [Get Started](#get-started)
 - [Notesaw Syntax](#notesaw-syntax)
 - [How does it work?](#how-does-it-work)
-- [Known Issues](#known-issues)
 - [Change Log](#change-log)
 - [References](#references)
 - [License](#license)

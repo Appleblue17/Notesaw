@@ -102,4 +102,4 @@
 
 **示例**：`[update] Add new block types and corresponding icons in BLOCKLABEL and update abbreviation mapping`
 
-> 提交由 AI Agent 生成时，需附带 `Generated with Continue` 的 co-author 信息。
+> 提交由 AI Agent 生成时，需附带 co-author 信息。
