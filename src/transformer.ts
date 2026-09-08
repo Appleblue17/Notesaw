@@ -174,7 +174,8 @@ export class SpanState {
 
       if (!node.properties || !node.properties.id) {
         const newId = this.getNewId();
-        node.properties = { ...node.properties, id: newId };
+        // hast id is a string attribute; keep map bookkeeping numeric separately.
+        node.properties = { ...node.properties, id: String(newId) };
         this.recordNode(newId, this.mapDepth[fatherId] + 1, fatherId, startLine, endLine);
       }
       const id: number = Number(node.properties.id);
@@ -192,7 +193,7 @@ export class SpanState {
           const childEndLine = child.position.end.line + baseLine;
 
           const newId = this.getNewId();
-          child.properties = { ...child.properties, id: newId };
+          child.properties = { ...child.properties, id: String(newId) };
           this.recordNode(newId, depth + 1, id, childStartLine, childEndLine);
 
           if (firstChild) {

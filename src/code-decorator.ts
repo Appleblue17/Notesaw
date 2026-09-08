@@ -99,11 +99,11 @@ function textContentOf(children: ElementContent[]): string {
 function createLine(children: ElementContent[], line: number): Element {
   const number = el(
     "span",
-    { className: "sn-no", dataLineNumber: String(line) },
+    { className: ["sn-no"], dataLineNumber: String(line) },
     [{ type: "text", value: String(line) }],
   );
-  const content = el("span", { className: "sn-code-part" }, children);
-  return el("span", { className: "sn-line", dataLineNumber: String(line) }, [number, content]);
+  const content = el("span", { className: ["sn-code-part"] }, children);
+  return el("span", { className: ["sn-line"], dataLineNumber: String(line) }, [number, content]);
 }
 
 /**
@@ -168,10 +168,11 @@ function layoutLines(code: Element): void {
 
 function addClass(el: Element, extra: string): void {
   const cur = el.properties?.className;
-  const list: (string | number)[] = Array.isArray(cur)
-    ? (cur.filter((c) => typeof c !== "boolean") as (string | number)[])
+  // hast type: className is `string[]`. Guard against older/no value shapes.
+  const list: string[] = Array.isArray(cur)
+    ? cur.filter((c): c is string => typeof c === "string")
     : typeof cur === "string" || typeof cur === "number"
-      ? [cur]
+      ? [String(cur)]
       : [];
   list.push(extra);
   el.properties = { ...el.properties, className: list };
@@ -201,10 +202,10 @@ function decorate(pre: Element, code: Element, opts: CodeOptions): void {
   addClass(pre, "sn-block");
   const toolChildren: ElementContent[] = [];
   if (lang) {
-    toolChildren.push(el("span", { className: "sn-lang" }, [{ type: "text", value: lang }]));
+    toolChildren.push(el("span", { className: ["sn-lang"] }, [{ type: "text", value: lang }]));
   }
   toolChildren.push(
-    el("button", { className: "sn-copy", type: "button", "aria-label": "Copy code" }, [
+    el("button", { className: ["sn-copy"], type: "button", "aria-label": "Copy code" }, [
       { type: "text", value: "Copy" },
     ]),
   );
