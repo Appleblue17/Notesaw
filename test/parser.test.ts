@@ -101,3 +101,50 @@ describe("parser: html pipeline with box", () => {
     expect(String(html)).toContain("GTD");
   });
 });
+
+async function renderBox(doc: string): Promise<string> {
+  return String(
+    await unified()
+      .use(noteParsePlugin)
+      .use(noteBoxParsePlugin)
+      .use(remarkRehype)
+      .use(rehypeStringify)
+      .process(doc),
+  );
+}
+
+describe("parser: box edge cases", () => {
+  it("renders a lone box as its own line", async () => {
+    const html = await renderBox("@[box text]");
+    expect(html).toContain('<span class="box">box text</span>');
+  });
+
+  it("renders a lone box as a block-title that only contains a box", async () => {
+    const html = await renderBox("@def @[box text] {\n    hello\n}");
+    expect(html).toContain("definition-block");
+    expect(html).toContain('<span class="box">box text</span>');
+  });
+
+  it("keeps a nested box as literal text inside the outer box", async () => {
+    const html = await renderBox("@[hello @[box] world]");
+    expect(html).toContain('<span class="box">hello @[box] world</span>');
+    // no inner box element is produced
+    expect(html).not.toContain('<span class="box">box</span>');
+  });
+
+  it("still renders ordinary inline boxes", async () => {
+    const html = await renderBox("para with @[ok] end");
+    expect(html).toContain('<span class="box">ok</span>');
+  });
+});
+
+describe("parser: standalone boxes on their own lines", () => {
+  it("keeps blanket-separated standalone boxes on separate lines", async () => {
+    const html = await renderBox("@[ok]\n\n@[hello]");
+    // two separate paragraph blocks, each owning one box
+    const paras = html.match(/<p[^>]*><span class="box">[^<]*<\/span><\/p>/g) || [];
+    expect(paras.length).toBe(2);
+    expect((paras[0] as string)).toContain("ok");
+    expect((paras[1] as string)).toContain("hello");
+  });
+});

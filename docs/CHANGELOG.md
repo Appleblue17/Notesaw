@@ -19,6 +19,8 @@
 - The preview self-heals if an update cannot locate its target region, instead of getting stuck.
 - Small dotted accents inside icons (for example the dot under `help-circle`'s question mark) no longer vanish: block icons are drawn with round stroke caps, so Feather's zero-length "dot" segments render as a visible dot.
 - Block icon, label, and left-border accent colors are no longer baked in at a fixed washed-out lightness. The accent hue is stored per block and its lightness is chosen per theme, so **light mode** uses a darker accent for adequate contrast on white, while **dark mode** keeps the vivid original look.
+- Boxes that stand alone on their own lines (for example two `@[…]` lines separated by a blank line) no longer render side by side on the same row: each standalone box is wrapped in its own paragraph block, so they stack vertically like normal block content.
+- A box is no longer clipped into a broken self‑closing `<box …/>` when its body contains another `@[…]`: boxes are an inline, non‑nested construct, so the outer box is kept and any nested `@[` is treated as literal text inside the outer box's highlight. This also fixes a lone box used as an entire title/line disappearing. Inline boxes inside running prose are unchanged.
 
 ### Documentation
 
